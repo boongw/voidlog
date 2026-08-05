@@ -1,0 +1,15 @@
+// Prisma schema for the GW2 Log-Analyse-Plattform.
+//
+// Skeleton (step 1): datasource/generator only. The full data model
+// (User, Project, ProjectMember, UploadBatch, LogFile, EncounterResult,
+// PhaseResult, MechanicEvent, PlayerResult per ADR-005/ADR-009) is added
+// in step 2.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
