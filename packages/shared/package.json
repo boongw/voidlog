@@ -9,6 +9,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint ."
   },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.699.0",
+    "@aws-sdk/s3-request-presigner": "^3.699.0",
+    "bullmq": "^5.28.2",
+    "ioredis": "^5.4.1"
+  },
   "devDependencies": {
     "typescript": "^5.6.3"
   }
