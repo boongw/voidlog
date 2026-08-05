@@ -1,7 +1,10 @@
-import { parser as createTokenParser } from "stream-json";
 import type { Readable } from "node:stream";
-import type { EiPlayer, EiRoot } from "./ei-json-shape.js";
-import { type JsonToken, type JsonValue, SkipTracker, ValueBuilder } from "./value-builder.js";
+// stream-json is a CommonJS package (`export =`); Node's ESM interop does
+// not reliably expose its `.parser` property as a named export, so this
+// must be a default import, not `import { parser } from "stream-json"`.
+import createTokenParser from "stream-json";
+import type { EiPlayer, EiRoot } from "./ei-json-shape";
+import { type JsonToken, type JsonValue, SkipTracker, ValueBuilder } from "./value-builder";
 
 /**
  * Selective/streaming extraction of an EI JSON report (ADR-008): the
@@ -46,7 +49,20 @@ export interface ExtractedEncounter {
 
 export function extractEncounterFromStream(jsonStream: Readable): Promise<ExtractedEncounter> {
   return new Promise((resolve, reject) => {
-    const tokenStream = jsonStream.pipe(createTokenParser());
+    // stream-json packs keys/strings/numbers into single combined events
+    // by default, but ALSO still emits the underlying start*/stringChunk/
+    // end* streaming events unless streaming is explicitly turned off.
+    // The state machine below only understands the packed events.
+    const tokenStream = jsonStream.pipe(
+      createTokenParser({
+        packKeys: true,
+        packStrings: true,
+        packNumbers: true,
+        streamKeys: false,
+        streamStrings: false,
+        streamNumbers: false,
+      }),
+    );
 
     let state: State = "expect-root-start";
     const root: Record<string, JsonValue> = {};

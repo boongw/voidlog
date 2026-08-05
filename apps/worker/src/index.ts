@@ -1,7 +1,11 @@
 import { Worker } from "bullmq";
-import { createRedisConnection, LOG_PARSING_QUEUE_NAME, type LogParsingJobData } from "@voidlog/shared";
-import { processLogFileJob } from "./job-processor.js";
-import { createLogParser } from "./parsers/log-parser-factory.js";
+import {
+  createRedisConnection,
+  LOG_PARSING_QUEUE_NAME,
+  type LogParsingJobData,
+} from "@voidlog/shared";
+import { processLogFileJob } from "./job-processor";
+import { createLogParser } from "./parsers/log-parser-factory";
 
 /**
  * Worker service entry point (ADR-004). Consumes the log-parsing queue,
@@ -28,7 +32,9 @@ function main(): void {
   );
 
   worker.on("ready", () => console.log("[worker] ready, listening for log-parsing jobs"));
-  worker.on("failed", (job, err) => console.error(`[worker] job ${job?.id ?? "?"} failed:`, err.message));
+  worker.on("failed", (job, err) =>
+    console.error(`[worker] job ${job?.id ?? "?"} failed:`, err.message),
+  );
 
   const shutdown = async (): Promise<void> => {
     console.log("[worker] shutting down");

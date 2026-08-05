@@ -91,7 +91,10 @@ async function main(): Promise<void> {
     throw new Error("LogFile is DONE but no EncounterResult was found");
   }
 
-  const totalMechanicEvents = encounter.phaseResults.reduce((sum, p) => sum + p.mechanicEvents.length, 0);
+  const totalMechanicEvents = encounter.phaseResults.reduce(
+    (sum, p) => sum + p.mechanicEvents.length,
+    0,
+  );
 
   console.log("");
   console.log("=== E2E result ===");
@@ -128,7 +131,11 @@ async function loadTestFileBuffer(): Promise<Buffer> {
 
 async function pollUntilTerminal(
   logFileId: string,
-): Promise<{ status: LogFileStatus; errorMessage: string | null; externalReportUrl: string | null }> {
+): Promise<{
+  status: LogFileStatus;
+  errorMessage: string | null;
+  externalReportUrl: string | null;
+}> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   for (;;) {
     const logFile = await prisma.logFile.findUniqueOrThrow({ where: { id: logFileId } });

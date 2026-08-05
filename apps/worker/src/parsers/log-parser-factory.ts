@@ -1,6 +1,6 @@
 import { createStorageClient, getObjectBuffer, type LogParser } from "@voidlog/shared";
-import { DpsReportParser } from "./dps-report-parser.js";
-import { MockParser } from "./mock-parser.js";
+import { DpsReportParser } from "./dps-report-parser";
+import { MockParser } from "./mock-parser";
 
 export type LogParserImpl = "mock" | "dps-report";
 

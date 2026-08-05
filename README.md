@@ -70,5 +70,5 @@ pnpm typecheck       # tsc --noEmit über alle Packages
 - **Schritt 2:** Vollständiges Datenmodell + Migration, Storage-Client,
   Queue-Anbindung, echter `DpsReportParser`, SSE-Fortschritt — nachgewiesen
   per Testskript/curl, ohne UI.
-- **Schritt 3:** Auth.js/Discord, geschützte Routen, alle Kernseiten
+- **Schritt 3:** https://gw2auth.com/ auth, geschützte Routen, alle Kernseiten
   unstyled an echte Daten aus Schritt 2 angebunden.

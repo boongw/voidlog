@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 import type { LogParser, ParsedLogHandle } from "@voidlog/shared";
-import { TEST_BOSS_ID } from "../boss-configs/test-boss.js";
+import { TEST_BOSS_ID } from "../boss-configs/test-boss";
 
 /**
  * Fixture EI JSON used by MockParser (ADR-002: "tests without an

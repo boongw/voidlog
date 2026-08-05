@@ -1,7 +1,7 @@
 import { MechanicCategory, prisma } from "@voidlog/db";
 import type { BossConfig, MechanicCategory as SharedMechanicCategory } from "@voidlog/shared";
-import { DEATH_MECHANIC_NAME } from "./ei-json-shape.js";
-import type { ExtractedEncounter } from "./extract-encounter.js";
+import { DEATH_MECHANIC_NAME } from "./ei-json-shape";
+import type { ExtractedEncounter } from "./extract-encounter";
 
 const CATEGORY_MAP: Record<SharedMechanicCategory, MechanicCategory> = {
   mistake: MechanicCategory.MISTAKE,
@@ -45,7 +45,8 @@ export async function persistExtractedEncounter(
     throw new Error('EI JSON is missing a numeric "durationMS"/"duration" field');
   }
 
-  const bossId = root.triggerID !== undefined ? String(root.triggerID) : slugify(root.fightName ?? "unknown");
+  const bossId =
+    root.triggerID !== undefined ? String(root.triggerID) : slugify(root.fightName ?? "unknown");
   const bossName = root.fightName ?? "Unknown Encounter";
 
   const sortedPhases = [...root.phases].sort((a, b) => a.start - b.start);

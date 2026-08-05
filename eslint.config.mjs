@@ -13,4 +13,12 @@ export default tseslint.config(
   {
     ignores: ["**/dist/**", "**/.next/**", "**/node_modules/**", "**/generated/**"],
   },
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 );

@@ -4,7 +4,8 @@
  * readable.
  */
 
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export interface JsonToken {
   name: string;

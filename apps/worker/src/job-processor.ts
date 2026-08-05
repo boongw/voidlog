@@ -1,8 +1,8 @@
 import { LogFileStatus, prisma } from "@voidlog/db";
 import type { LogParser, LogParsingJobData } from "@voidlog/shared";
-import { getBossConfig } from "./boss-configs/registry.js";
-import { extractEncounterFromStream } from "./extraction/extract-encounter.js";
-import { persistExtractedEncounter } from "./extraction/persist-encounter.js";
+import { getBossConfig } from "./boss-configs/registry";
+import { extractEncounterFromStream } from "./extraction/extract-encounter";
+import { persistExtractedEncounter } from "./extraction/persist-encounter";
 
 export async function processLogFileJob(data: LogParsingJobData, parser: LogParser): Promise<void> {
   const logFile = await prisma.logFile.findUniqueOrThrow({ where: { id: data.logFileId } });
@@ -16,7 +16,8 @@ export async function processLogFileJob(data: LogParsingJobData, parser: LogPars
     const { reportUrl, jsonStream } = await parser.parse(logFile.storageKeyRaw);
     const extracted = await extractEncounterFromStream(jsonStream);
 
-    const bossId = extracted.root.triggerID !== undefined ? String(extracted.root.triggerID) : undefined;
+    const bossId =
+      extracted.root.triggerID !== undefined ? String(extracted.root.triggerID) : undefined;
     const bossConfig = bossId ? getBossConfig(bossId) : undefined;
 
     await persistExtractedEncounter(logFile.id, extracted, bossConfig);

@@ -1,5 +1,5 @@
 import type { BossConfig } from "@voidlog/shared";
-import { TEST_BOSS_ID, testBossConfig } from "./test-boss.js";
+import { TEST_BOSS_ID, testBossConfig } from "./test-boss";
 
 const registry = new Map<string, BossConfig>([[TEST_BOSS_ID, testBossConfig]]);
 

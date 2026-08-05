@@ -37,7 +37,9 @@ export class DpsReportParser implements LogParser {
 
     const uploadResponse = await fetch(uploadUrl, { method: "POST", body: form });
     if (!uploadResponse.ok) {
-      throw new Error(`dps.report upload failed: ${uploadResponse.status} ${await safeText(uploadResponse)}`);
+      throw new Error(
+        `dps.report upload failed: ${uploadResponse.status} ${await safeText(uploadResponse)}`,
+      );
     }
     const uploadResult = (await uploadResponse.json()) as UploadContentResponse;
     if (uploadResult.error) {
@@ -48,7 +50,9 @@ export class DpsReportParser implements LogParser {
     jsonUrl.searchParams.set("id", uploadResult.id);
     const jsonResponse = await fetch(jsonUrl);
     if (!jsonResponse.ok || !jsonResponse.body) {
-      throw new Error(`dps.report getJson failed: ${jsonResponse.status} ${await safeText(jsonResponse)}`);
+      throw new Error(
+        `dps.report getJson failed: ${jsonResponse.status} ${await safeText(jsonResponse)}`,
+      );
     }
 
     return {

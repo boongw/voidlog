@@ -7,7 +7,10 @@ import { NextResponse } from "next/server";
  * The queue is also the central place dps.report's global rate limit
  * (ADR-002) gets enforced, on the worker side.
  */
-export async function POST(_request: Request, { params }: { params: Promise<{ batchId: string }> }) {
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<{ batchId: string }> },
+) {
   const { batchId } = await params;
 
   const pendingLogFiles = await prisma.logFile.findMany({

@@ -25,7 +25,9 @@ export function createRedisConnection(): Redis {
   return sharedConnection;
 }
 
-export function createLogParsingQueue(connection: Redis = createRedisConnection()): Queue<LogParsingJobData> {
+export function createLogParsingQueue(
+  connection: Redis = createRedisConnection(),
+): Queue<LogParsingJobData> {
   return new Queue<LogParsingJobData>(LOG_PARSING_QUEUE_NAME, { connection });
 }
 
