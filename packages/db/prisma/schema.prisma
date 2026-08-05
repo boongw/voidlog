@@ -1,9 +1,11 @@
 // Prisma schema for the GW2 Log-Analyse-Plattform.
 //
-// Skeleton (step 1): datasource/generator only. The full data model
-// (User, Project, ProjectMember, UploadBatch, LogFile, EncounterResult,
-// PhaseResult, MechanicEvent, PlayerResult per ADR-005/ADR-009) is added
-// in step 2.
+// Data model per ADR-005 (base entities) and ADR-009 (PhaseResult as its
+// own table, MechanicEvent referencing PhaseResult, category enum).
+//
+// Auth.js-specific tables (Account, Session, VerificationToken) are
+// intentionally not added yet — they belong to step 3 (ADR-007) and are
+// additive, so adding them later won't require touching this model.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,4 +14,162 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  discordId String?  @unique
+  name      String?
+  email     String?  @unique
+  image     String?
+  createdAt DateTime @default(now())
+
+  ownedProjects Project[]       @relation("ProjectOwner")
+  memberships   ProjectMember[]
+
+  @@map("users")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  owner         User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members       ProjectMember[]
+  uploadBatches UploadBatch[]
+
+  @@map("projects")
+}
+
+enum ProjectRole {
+  OWNER
+  MEMBER
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  createdAt DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model UploadBatch {
+  id        String   @id @default(cuid())
+  projectId String
+  label     String
+  createdAt DateTime @default(now())
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  logFiles LogFile[]
+
+  @@map("upload_batches")
+}
+
+enum LogFileStatus {
+  PENDING
+  PARSING
+  DONE
+  FAILED
+}
+
+model LogFile {
+  id                String        @id @default(cuid())
+  batchId           String
+  status            LogFileStatus @default(PENDING)
+  storageKeyRaw     String
+  storageKeyJson    String?
+  externalReportUrl String?
+  errorMessage      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  batch           UploadBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  encounterResult EncounterResult?
+
+  @@map("log_files")
+}
+
+model EncounterResult {
+  id         String   @id @default(cuid())
+  logFileId  String   @unique
+  bossId     String
+  bossName   String
+  success    Boolean
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  logFile       LogFile        @relation(fields: [logFileId], references: [id], onDelete: Cascade)
+  phaseResults  PhaseResult[]
+  playerResults PlayerResult[]
+
+  @@map("encounter_results")
+}
+
+model PhaseResult {
+  id                  String  @id @default(cuid())
+  encounterResultId   String
+  name                String
+  order               Int
+  startMs             Int
+  endMs               Int
+  reached             Boolean
+  success             Boolean
+  playersAliveAtStart Int
+
+  encounterResult EncounterResult @relation(fields: [encounterResultId], references: [id], onDelete: Cascade)
+  mechanicEvents  MechanicEvent[]
+
+  @@map("phase_results")
+}
+
+enum MechanicCategory {
+  MISTAKE
+  STEALTH
+  REVEAL
+  GREEN
+  BOSS_SPECIFIC
+}
+
+model MechanicEvent {
+  id             String            @id @default(cuid())
+  phaseResultId  String
+  playerResultId String?
+  mechanicName   String
+  category       MechanicCategory
+  displayName    String
+  timeMs         Int
+  context        Json?
+
+  phaseResult  PhaseResult   @relation(fields: [phaseResultId], references: [id], onDelete: Cascade)
+  playerResult PlayerResult? @relation(fields: [playerResultId], references: [id], onDelete: SetNull)
+
+  @@map("mechanic_events")
+}
+
+model PlayerResult {
+  id                String  @id @default(cuid())
+  encounterResultId String
+  account           String
+  characterName     String
+  profession        String
+  group             Int?
+  dps               Int
+  deaths            Int
+  downs             Int
+  role              String?
+
+  encounterResult EncounterResult @relation(fields: [encounterResultId], references: [id], onDelete: Cascade)
+  mechanicEvents  MechanicEvent[]
+
+  @@index([encounterResultId, account])
+  @@map("player_results")
 }
