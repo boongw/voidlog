@@ -1,13 +1,43 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens (step 3). Deliberately plain/neutral for now — this file
+ * is the single place a later reskin (from the Claude Design briefing)
+ * needs to touch; components should reference these tokens (bg-surface,
+ * text-muted, border-line, rounded-md, ...) rather than hardcoded
+ * Tailwind color/radius utilities.
+ */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --surface: #f7f7f8;
+  --line: #e2e2e5;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --danger: #dc2626;
+  --success: #16a34a;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,6 +46,13 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --surface: #161616;
+    --line: #2a2a2e;
+    --muted: #9ca3af;
+    --primary: #60a5fa;
+    --primary-foreground: #0a0a0a;
+    --danger: #f87171;
+    --success: #4ade80;
   }
 }
 
