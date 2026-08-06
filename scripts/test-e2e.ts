@@ -23,16 +23,47 @@ const WEB_BASE_URL = process.env.WEB_BASE_URL ?? "http://localhost:3000";
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
-async function main(): Promise<void> {
+async function loadTestFileBuffer(): Promise<Buffer> {
+  const path = process.env.TEST_EVTC_PATH;
+  if (path) {
+    console.log(`[e2e] reading real test file from TEST_EVTC_PATH="${path}"`);
+    return readFile(path);
+  }
+  console.log("[e2e] TEST_EVTC_PATH not set — using a dummy buffer (fine for LOG_PARSER=mock)");
+  return Buffer.from("dummy-evtc-content-for-mock-parser");
+}
+
+async function pollUntilTerminal(logFileId: string): Promise<{
+  status: LogFileStatus;
+  errorMessage: string | null;
+  externalReportUrl: string | null;
+}> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  for (;;) {
+    const logFile = await prisma.logFile.findUniqueOrThrow({ where: { id: logFileId } });
+    if (logFile.status === LogFileStatus.DONE || logFile.status === LogFileStatus.FAILED) {
+      return logFile;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `Timed out after ${POLL_TIMEOUT_MS}ms waiting for LogFile to finish (last status: ${logFile.status}).\n` +
+          `Is "pnpm dev" running (apps/worker in particular)?`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+}
+
+try {
   console.log(`[e2e] using web base URL: ${WEB_BASE_URL}`);
 
   console.log("[e2e] seeding test project/batch...");
   await prisma.project.deleteMany({ where: { name: "E2E Test Project" } });
 
   const owner = await prisma.user.upsert({
-    where: { discordId: "e2e-test-user" },
+    where: { email: "e2e-test-user@voidlog.local" },
     update: {},
-    create: { discordId: "e2e-test-user", name: "E2E Test User" },
+    create: { email: "e2e-test-user@voidlog.local", name: "E2E Test User" },
   });
 
   const project = await prisma.project.create({
@@ -117,46 +148,9 @@ async function main(): Promise<void> {
   }
 
   console.log("[e2e] OK — pipeline proven end to end.");
+} catch (error) {
+  console.error("[e2e] FAILED:", error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+} finally {
+  await prisma.$disconnect();
 }
-
-async function loadTestFileBuffer(): Promise<Buffer> {
-  const path = process.env.TEST_EVTC_PATH;
-  if (path) {
-    console.log(`[e2e] reading real test file from TEST_EVTC_PATH="${path}"`);
-    return readFile(path);
-  }
-  console.log("[e2e] TEST_EVTC_PATH not set — using a dummy buffer (fine for LOG_PARSER=mock)");
-  return Buffer.from("dummy-evtc-content-for-mock-parser");
-}
-
-async function pollUntilTerminal(
-  logFileId: string,
-): Promise<{
-  status: LogFileStatus;
-  errorMessage: string | null;
-  externalReportUrl: string | null;
-}> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  for (;;) {
-    const logFile = await prisma.logFile.findUniqueOrThrow({ where: { id: logFileId } });
-    if (logFile.status === LogFileStatus.DONE || logFile.status === LogFileStatus.FAILED) {
-      return logFile;
-    }
-    if (Date.now() > deadline) {
-      throw new Error(
-        `Timed out after ${POLL_TIMEOUT_MS}ms waiting for LogFile to finish (last status: ${logFile.status}).\n` +
-          `Is "pnpm dev" running (apps/worker in particular)?`,
-      );
-    }
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-  }
-}
-
-main()
-  .catch((error) => {
-    console.error("[e2e] FAILED:", error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });

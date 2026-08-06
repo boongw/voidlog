@@ -3,9 +3,10 @@
 // Data model per ADR-005 (base entities) and ADR-009 (PhaseResult as its
 // own table, MechanicEvent referencing PhaseResult, category enum).
 //
-// Auth.js-specific tables (Account, Session, VerificationToken) are
-// intentionally not added yet — they belong to step 3 (ADR-007) and are
-// additive, so adding them later won't require touching this model.
+// Auth (step 3, ADR-007 as amended: GW2Auth instead of Discord): Account/
+// Session/VerificationToken follow the standard Auth.js Prisma adapter
+// shape (https://authjs.dev/getting-started/adapters/prisma) so the
+// adapter works without extra mapping.
 
 generator client {
   provider = "prisma-client-js"
@@ -17,17 +18,61 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  discordId String?  @unique
-  name      String?
-  email     String?  @unique
-  image     String?
-  createdAt DateTime @default(now())
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String?   @unique
+  emailVerified      DateTime?
+  image              String?
+  /// Whether the user's primary linked GW2 account is verified at GW2Auth.
+  gw2AccountVerified Boolean   @default(false)
+  createdAt          DateTime  @default(now())
 
+  accounts      Account[]
+  sessions      Session[]
   ownedProjects Project[]       @relation("ProjectOwner")
   memberships   ProjectMember[]
 
   @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model Project {
