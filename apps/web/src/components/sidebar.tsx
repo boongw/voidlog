@@ -45,7 +45,7 @@ export function Sidebar({ userName, currentProject }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="bg-surface-2 border-line-soft flex w-[232px] shrink-0 flex-col border-r px-3.5 py-5">
+    <aside className="bg-surface-2 border-line-soft flex h-full w-[232px] shrink-0 flex-col overflow-y-auto border-r px-3.5 py-5">
       <Link href="/" className="mb-6 flex items-center gap-2.5 px-2">
         <span className="bg-primary h-[18px] w-[18px] [clip-path:polygon(50%_0%,100%_25%,100%_75%,50%_100%,0%_75%,0%_25%)]" />
         <span className="font-heading text-base font-bold tracking-wide">VOIDLOG</span>

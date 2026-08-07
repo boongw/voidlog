@@ -77,9 +77,9 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-1">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar userName={session.user.name ?? "Account"} />
-      <div className="min-w-0 flex-1 px-10 py-8">
+      <div className="min-w-0 flex-1 overflow-y-auto px-10 py-8">
         <div className="mb-6 flex items-end justify-between">
           <div>
             <h1 className="font-heading text-foreground-strong text-2xl font-bold">Projekte</h1>

@@ -15,12 +15,12 @@ export default async function ProjectLayout(props: LayoutProps<"/projects/[proje
   });
 
   return (
-    <div className="flex min-h-screen flex-1">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar
         userName={session.user.name ?? "Account"}
         currentProject={{ id: projectId, name: membership.project.name, latestBatch }}
       />
-      <div className="min-w-0 flex-1">{props.children}</div>
+      <div className="min-w-0 flex-1 overflow-y-auto">{props.children}</div>
     </div>
   );
 }
