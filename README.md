@@ -5,7 +5,7 @@ EVTC-Kampflogs, organisiert in Projekten/Trainingsgruppen über mehrere
 Wochen/Monate. Architektur siehe
 [`docs/ADR-GW2-Log-Analyse-Plattform.md`](docs/ADR-GW2-Log-Analyse-Plattform.md).
 
-Aktueller Stand: **Schritt 3 — Auth (GW2Auth) + Basic UI.** Alle Kernseiten
+Aktueller Stand: **Schritt 3 — Auth (Discord) + Basic UI.** Alle Kernseiten
 sind an echte Daten angebunden und mit Login geschützt, aber bewusst noch
 unstyled.
 
@@ -14,7 +14,7 @@ unstyled.
 ```
 apps/
   web/      Next.js (App Router, TypeScript, Tailwind) — Frontend + BFF,
-            Auth.js mit GW2Auth-Provider (ADR-007)
+            Auth.js mit Discord-Provider (ADR-007)
   worker/   Node/TS-Service — Queue-Consumer, LogParser, Extraktion
             (ADR-002/004/008/009)
 packages/
@@ -25,7 +25,7 @@ packages/
             BullMQ-Queue-Konfiguration (ADR-004)
 scripts/
   test-e2e.ts          End-to-End-Test des Daten-/Job-Flusses (Schritt 2)
-  seed-test-session.ts Dev-Login-Bypass ohne echten GW2Auth-Client (siehe unten)
+  seed-test-session.ts Dev-Login-Bypass ohne echte Discord-Anwendung (siehe unten)
 ```
 
 ## Voraussetzungen
@@ -42,17 +42,16 @@ docker compose up -d
 cp .env.example .env
 ```
 
-### GW2Auth-Client registrieren (für echten Login)
+### Discord-Anwendung registrieren (für echten Login)
 
-1. Bei [gw2auth.com](https://gw2auth.com) einloggen (Discord/Google/GitHub/E-Mail)
-   und unter `/account/client` einen neuen Client anlegen.
-2. Redirect-URI: `http://127.0.0.1:3000/api/auth/callback/gw2auth`
-   (GW2Auth verlangt `127.0.0.1`, nicht `localhost`).
-3. `AUTH_GW2AUTH_ID` und `AUTH_GW2AUTH_SECRET` in `.env` eintragen.
-4. App unter `http://127.0.0.1:3000` (nicht `localhost:3000`) aufrufen, sonst
-   passt die Redirect-URI nicht.
+1. Auf der [Discord Developer Portal](https://discord.com/developers/applications)
+   eine neue Anwendung anlegen.
+2. Unter "OAuth2" eine Redirect-URI hinzufügen:
+   `http://localhost:3000/api/auth/callback/discord`.
+3. `AUTH_DISCORD_ID` (Client ID) und `AUTH_DISCORD_SECRET` (Client Secret)
+   in `.env` eintragen.
 
-### Ohne eigenen GW2Auth-Client testen
+### Ohne eigene Discord-Anwendung testen
 
 ```bash
 pnpm seed:test-session
@@ -106,8 +105,8 @@ pnpm typecheck       # tsc --noEmit über alle Packages
 - **Schritt 2:** Vollständiges Datenmodell + Migration, Storage-Client,
   Queue-Anbindung, echter `DpsReportParser`, SSE-Fortschritt — nachgewiesen
   per Testskript/curl, ohne UI.
-- **Schritt 3 (dieser Stand):** Auth.js mit GW2Auth-Provider (ADR-007,
-  geändert von Discord auf GW2Auth), geschützte Routen, alle sieben
-  Kernseiten (Login, Dashboard, Projekt-Detail, Batch-Upload, Batch-Detail,
-  Log-Analyse, Roster) an echte Daten angebunden, Design-Tokens in
-  `globals.css` isoliert für das spätere Reskinning.
+- **Schritt 3 (dieser Stand):** Auth.js mit Discord-Provider (ADR-007),
+  geschützte Routen, alle sieben Kernseiten (Login, Dashboard,
+  Projekt-Detail, Batch-Upload, Batch-Detail, Log-Analyse, Roster) an
+  echte Daten angebunden, Design-Tokens in `globals.css` isoliert für das
+  spätere Reskinning.

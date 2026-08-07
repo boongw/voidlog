@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@voidlog/db";
 
 /**
- * Dev-only helper to simulate a logged-in session without a real GW2Auth
- * OAuth round trip (which needs a registered client + interactive login
- * this script can't perform). Creates a user + database session row and
- * prints the cookie value to set manually in the browser.
+ * Dev-only helper to simulate a logged-in session without a real Discord
+ * OAuth round trip (which needs a registered application + interactive
+ * login this script can't perform). Creates a user + database session row
+ * and prints the cookie value to set manually in the browser.
  */
 const user = await prisma.user.upsert({
   where: { email: "manual-test@voidlog.local" },
@@ -13,7 +13,6 @@ const user = await prisma.user.upsert({
   create: {
     email: "manual-test@voidlog.local",
     name: "Manual Test User",
-    gw2AccountVerified: true,
   },
 });
 
