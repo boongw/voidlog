@@ -1,3 +1,4 @@
+import { ProjectRole } from "@voidlog/db";
 import { notFound } from "next/navigation";
 import { prisma } from "@voidlog/db";
 
@@ -11,6 +12,18 @@ export async function requireProjectMembership(projectId: string, userId: string
     include: { project: true },
   });
   if (!membership) {
+    notFound();
+  }
+  return membership;
+}
+
+/**
+ * Deleting a whole project affects every member's data, not just the
+ * caller's — restrict it to the project owner rather than any member.
+ */
+export async function requireProjectOwnership(projectId: string, userId: string) {
+  const membership = await requireProjectMembership(projectId, userId);
+  if (membership.role !== ProjectRole.OWNER) {
     notFound();
   }
   return membership;

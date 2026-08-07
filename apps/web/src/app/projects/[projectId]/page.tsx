@@ -1,7 +1,8 @@
-import { LogFileStatus, prisma } from "@voidlog/db";
+import { LogFileStatus, ProjectRole, prisma } from "@voidlog/db";
 import Link from "next/link";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
+import { DeleteProjectButton } from "./delete-project-button";
 
 export default async function ProjectDetailPage(props: PageProps<"/projects/[projectId]">) {
   const { projectId } = await props.params;
@@ -36,6 +37,9 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
           >
             Upload batch
           </Link>
+          {membership.role === ProjectRole.OWNER ? (
+            <DeleteProjectButton projectId={projectId} projectName={membership.project.name} />
+          ) : null}
         </div>
       </div>
 

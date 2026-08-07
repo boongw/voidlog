@@ -1,4 +1,5 @@
 import {
+  DeleteObjectsCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -84,6 +85,26 @@ export async function getObjectBuffer(client: S3Client, key: string): Promise<Bu
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
+}
+
+/**
+ * Deletes objects in batches of up to 1000 keys (the S3 DeleteObjects
+ * limit). Used when removing a Project/UploadBatch so raw .evtc files
+ * don't outlive the DB rows that reference them.
+ */
+export async function deleteObjects(client: S3Client, keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+
+  const bucket = getStorageBucket();
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    await client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: batch.map((key) => ({ Key: key })) },
+      }),
+    );
+  }
 }
 
 function requireEnv(name: string): string {

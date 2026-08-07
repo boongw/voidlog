@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
+import { DeleteBatchButton } from "./delete-batch-button";
 
 const STATUS_LABEL: Record<LogFileStatus, string> = {
   [LogFileStatus.PENDING]: "Pending",
@@ -33,10 +34,18 @@ export default async function BatchDetailPage(
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <Link href={`/projects/${projectId}`} className="text-muted hover:text-foreground text-sm">
-        ← {membership.project.name}
-      </Link>
-      <h1 className="mt-1 text-xl font-semibold">{batch.label}</h1>
+      <div className="flex items-start justify-between">
+        <div>
+          <Link
+            href={`/projects/${projectId}`}
+            className="text-muted hover:text-foreground text-sm"
+          >
+            ← {membership.project.name}
+          </Link>
+          <h1 className="mt-1 text-xl font-semibold">{batch.label}</h1>
+        </div>
+        <DeleteBatchButton projectId={projectId} batchId={batchId} batchLabel={batch.label} />
+      </div>
 
       <ul className="divide-line border-line mt-6 divide-y rounded-md border">
         {batch.logFiles.map((logFile, i) => (
