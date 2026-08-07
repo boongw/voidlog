@@ -1,63 +1,107 @@
 @import "tailwindcss";
+@import "@radix-ui/themes/styles.css";
 
 /*
- * Design tokens (step 3). Deliberately plain/neutral for now — this file
- * is the single place a later reskin (from the Claude Design briefing)
- * needs to touch; components should reference these tokens (bg-surface,
- * text-muted, border-line, rounded-md, ...) rather than hardcoded
- * Tailwind color/radius utilities.
+ * Design tokens (VOIDLOG reskin). Dark-only palette — components should
+ * reference these tokens (bg-surface, text-muted, border-line, ...)
+ * rather than hardcoded Tailwind color/radius utilities.
  */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --surface: #f7f7f8;
-  --line: #e2e2e5;
-  --muted: #6b7280;
-  --primary: #2563eb;
+  --background: #0a0912;
+  --foreground: #ede9f5;
+  --foreground-strong: #f2eefa;
+  --surface: #15121f;
+  --surface-2: #0f0d18;
+  --line: #251f35;
+  --line-soft: #211d30;
+  --muted: #6b6478;
+  --muted-strong: #9c93b0;
+  --primary: #8b2fd1;
   --primary-foreground: #ffffff;
-  --danger: #dc2626;
-  --success: #16a34a;
+  --accent: #a98fdb;
+  --warning: #e8b84c;
+  --danger: #e0453d;
+  --success: #3dbfa6;
+  --discord: #5865f2;
 
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-strong: var(--foreground-strong);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
   --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-discord: var(--discord);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --surface: #161616;
-    --line: #2a2a2e;
-    --muted: #9ca3af;
-    --primary: #60a5fa;
-    --primary-foreground: #0a0a0a;
-    --danger: #f87171;
-    --success: #4ade80;
-  }
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-chakra-petch);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+}
+
+/* Radix Themes paints its own panel background on the .radix-themes root
+   by default — repoint it at our token so the VOIDLOG background wins. */
+.radix-themes {
+  --color-background: var(--background);
+}
+
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: #c9b3ea;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+@keyframes void-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.void-gradient-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 20%, rgba(139, 47, 209, 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(61, 191, 166, 0.08), transparent 60%),
+    var(--background);
+}
+
+.void-orb {
+  border-radius: 50%;
+  filter: blur(10px);
+  animation: void-pulse 6s ease-in-out infinite;
 }
