@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -41,14 +42,9 @@ export function DeleteBatchButton({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={pending}
-        className="border-danger text-danger rounded-md border px-3 py-2 text-sm disabled:opacity-50"
-      >
-        {pending ? "Deleting…" : "Delete batch"}
-      </button>
+      <Button type="button" color="red" variant="soft" onClick={handleDelete} disabled={pending}>
+        {pending ? "Wird gelöscht…" : "Batch löschen"}
+      </Button>
       {error ? <p className="text-danger text-sm">{error}</p> : null}
     </div>
   );

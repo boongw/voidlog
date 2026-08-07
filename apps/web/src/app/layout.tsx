@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-import { auth, signOut } from "@/auth";
+import { Chakra_Petch, Inter } from "next/font/google";
+import { Theme } from "@radix-ui/themes";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const chakraPetch = Chakra_Petch({
+  variable: "--font-chakra-petch",
+  weight: ["500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -19,33 +19,24 @@ export const metadata: Metadata = {
   description: "GW2 log analysis platform",
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const session = await auth();
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
-        {session?.user ? (
-          <header className="border-line flex items-center justify-between border-b px-4 py-3">
-            <Link href="/" className="font-semibold">
-              voidlog
-            </Link>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-muted">{session.user.name}</span>
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/login" });
-                }}
-              >
-                <button type="submit" className="text-muted hover:text-foreground underline">
-                  Sign out
-                </button>
-              </form>
-            </div>
-          </header>
-        ) : null}
-        <div className="flex-1">{children}</div>
+    <html
+      lang="en"
+      className={`${inter.variable} ${chakraPetch.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <body className="flex h-full min-h-screen flex-col">
+        <Theme
+          appearance="dark"
+          accentColor="purple"
+          grayColor="mauve"
+          radius="small"
+          panelBackground="solid"
+          className="flex min-h-screen flex-1 flex-col"
+        >
+          {children}
+        </Theme>
       </body>
     </html>
   );

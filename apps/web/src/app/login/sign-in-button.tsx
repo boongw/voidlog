@@ -1,15 +1,17 @@
 "use client";
 
+import { Button } from "@radix-ui/themes";
 import { signIn } from "next-auth/react";
 
 export function SignInButton() {
   return (
-    <button
+    <Button
       type="button"
+      size="3"
       onClick={() => signIn("discord")}
-      className="rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground"
+      className="!bg-discord w-full cursor-pointer !text-white"
     >
-      Sign in with Discord
-    </button>
+      Mit Discord anmelden
+    </Button>
   );
 }
