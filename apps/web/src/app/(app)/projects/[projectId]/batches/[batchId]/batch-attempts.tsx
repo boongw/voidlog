@@ -1,6 +1,6 @@
 "use client";
 
-import { Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { ChevronRightIcon, Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Card, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useState } from "react";
@@ -160,12 +160,10 @@ export function BatchAttempts({
                   onClick={() => setExpanded(isOpen ? null : a.n)}
                   className="grid w-full grid-cols-[16px_28px_48px_1fr_48px] items-center gap-3.5 px-4 py-2.5 text-left"
                 >
-                  <span
-                    className="text-muted text-xs transition-transform"
+                  <ChevronRightIcon
+                    className="text-muted h-4 w-4 transition-transform"
                     style={{ transform: isOpen ? "rotate(90deg)" : "none" }}
-                  >
-                    ▶
-                  </span>
+                  />
                   <span className="text-muted text-xs">{a.n}</span>
                   <span
                     className={
