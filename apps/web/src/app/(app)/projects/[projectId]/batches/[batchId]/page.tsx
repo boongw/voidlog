@@ -3,6 +3,7 @@ import { Card } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
 import { PhaseBadge } from "@/components/phase-badge";
 import { isMainPhase } from "@/lib/main-phases";
+import { translateMechanicName } from "@/lib/mechanic-names";
 import { isNoiseMechanic } from "@/lib/mechanics";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
@@ -107,7 +108,7 @@ export default async function BatchDetailPage(
       for (const event of phase.mechanicEvents) {
         if (event.mechanicName === "Dead" || isNoiseMechanic(event.mechanicName)) continue;
         const entry = agg.mechanics.get(event.mechanicName) ?? {
-          displayName: event.displayName,
+          displayName: translateMechanicName(event.mechanicName, event.displayName),
           count: 0,
         };
         entry.count += 1;
@@ -154,7 +155,11 @@ export default async function BatchDetailPage(
       mechanics: encounter.phaseResults.flatMap((p) =>
         p.mechanicEvents
           .filter((m) => m.mechanicName !== "Dead" && !isNoiseMechanic(m.mechanicName))
-          .map((m) => ({ timeMs: m.timeMs, name: m.displayName, mechanicName: m.mechanicName })),
+          .map((m) => ({
+            timeMs: m.timeMs,
+            name: translateMechanicName(m.mechanicName, m.displayName),
+            mechanicName: m.mechanicName,
+          })),
       ),
       phases: mainPhases.map((p) => ({
         name: p.name,
@@ -163,7 +168,10 @@ export default async function BatchDetailPage(
         success: p.success,
         mechanics: p.mechanicEvents
           .filter((m) => m.mechanicName !== "Dead" && !isNoiseMechanic(m.mechanicName))
-          .map((m) => ({ name: m.displayName, player: m.playerResult?.characterName ?? null })),
+          .map((m) => ({
+            name: translateMechanicName(m.mechanicName, m.displayName),
+            player: m.playerResult?.characterName ?? null,
+          })),
       })),
     };
   });

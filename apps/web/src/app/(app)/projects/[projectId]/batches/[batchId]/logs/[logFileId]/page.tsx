@@ -2,6 +2,7 @@ import { prisma } from "@voidlog/db";
 import { Card } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
 import { phaseColor } from "@/components/phase-badge";
+import { translateMechanicName } from "@/lib/mechanic-names";
 import { isNoiseMechanic } from "@/lib/mechanics";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
@@ -145,7 +146,9 @@ export default async function LogAnalysisPage(
                         className="border-line bg-surface-2 flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs"
                       >
                         <span className="bg-primary h-2 w-2 rounded-[1px]" />
-                        <span className="text-muted-strong">{event.displayName}</span>
+                        <span className="text-muted-strong">
+                          {translateMechanicName(event.mechanicName, event.displayName)}
+                        </span>
                         {event.playerResult ? (
                           <span className="text-danger font-semibold">
                             · {event.playerResult.characterName}
