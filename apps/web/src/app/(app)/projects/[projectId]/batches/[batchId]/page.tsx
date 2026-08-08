@@ -8,6 +8,7 @@ import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 import { BatchAttempts, type AttemptRow, type BatchPhaseStat } from "./batch-attempts";
 import { DeleteBatchButton } from "./delete-batch-button";
+import { RemoveLogButton } from "./remove-log-button";
 import { RetryLogButton } from "./retry-log-button";
 
 // storageKeyRaw looks like "raw/<batchId>/<uuid>-<sanitized filename>" — strip
@@ -228,7 +229,10 @@ export default async function BatchDetailPage(
                     <div className="text-danger mt-1 truncate text-xs">{logFile.errorMessage}</div>
                   ) : null}
                 </div>
-                <RetryLogButton logFileId={logFile.id} />
+                <div className="flex items-start gap-2">
+                  <RetryLogButton logFileId={logFile.id} />
+                  <RemoveLogButton logFileId={logFile.id} />
+                </div>
               </div>
             ))}
           </div>
