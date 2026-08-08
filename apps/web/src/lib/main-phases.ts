@@ -20,5 +20,9 @@ const MAIN_PHASES_BY_BOSS: Record<string, string[]> = {
 
 export function isMainPhase(bossId: string, phaseName: string): boolean {
   const mainPhases = MAIN_PHASES_BY_BOSS[bossId];
-  return !mainPhases || mainPhases.includes(phaseName);
+  if (!mainPhases) return true;
+  // "Purification 1"/"Purification 2" are the void-cleanse intermissions
+  // between dragons — not a dragon phase, but still real fight progress
+  // worth showing on the timeline (rendered in gray, see phaseColor).
+  return mainPhases.includes(phaseName) || phaseName.startsWith("Purification");
 }
