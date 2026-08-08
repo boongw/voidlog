@@ -154,7 +154,7 @@ export default async function BatchDetailPage(
       mechanics: encounter.phaseResults.flatMap((p) =>
         p.mechanicEvents
           .filter((m) => m.mechanicName !== "Dead" && !isNoiseMechanic(m.mechanicName))
-          .map((m) => ({ timeMs: m.timeMs, name: m.displayName })),
+          .map((m) => ({ timeMs: m.timeMs, name: m.displayName, mechanicName: m.mechanicName })),
       ),
       phases: mainPhases.map((p) => ({
         name: p.name,

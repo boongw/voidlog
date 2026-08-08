@@ -14,7 +14,7 @@ export interface AttemptRow {
   durationMs: number;
   segments: { name: string; order: number; leftPct: number; widthPct: number }[];
   deaths: { timeMs: number; player: string | null }[];
-  mechanics: { timeMs: number; name: string }[];
+  mechanics: { timeMs: number; name: string; mechanicName: string }[];
   phases: {
     name: string;
     order: number;
@@ -210,7 +210,12 @@ export function BatchAttempts({
                           className="absolute top-0 -translate-x-1/2"
                           style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
                         >
-                          <ExclamationTriangleIcon className="text-warning h-3 w-3" />
+                          {m.mechanicName === "Downed" ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
+                            <img src="/icons/downed.png" alt="" className="h-3.5 w-2.5" />
+                          ) : (
+                            <ExclamationTriangleIcon className="text-warning h-3 w-3" />
+                          )}
                         </span>
                       ))}
                     </span>
