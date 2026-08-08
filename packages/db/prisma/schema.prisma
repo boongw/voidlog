@@ -142,13 +142,17 @@ model LogFile {
 }
 
 model EncounterResult {
-  id         String   @id @default(cuid())
-  logFileId  String   @unique
+  id         String    @id @default(cuid())
+  logFileId  String    @unique
   bossId     String
   bossName   String
   success    Boolean
   durationMs Int
-  createdAt  DateTime @default(now())
+  /// When the fight actually happened in-game (EI's timeStartStd), not when
+  /// this row was inserted — lets trends sort by real chronology regardless
+  /// of upload order. Null for encounters parsed before this field existed.
+  recordedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   logFile       LogFile        @relation(fields: [logFileId], references: [id], onDelete: Cascade)
   phaseResults  PhaseResult[]

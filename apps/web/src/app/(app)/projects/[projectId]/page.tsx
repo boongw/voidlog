@@ -15,7 +15,6 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
 
   const rawBatches = await prisma.uploadBatch.findMany({
     where: { projectId },
-    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       label: true,
@@ -26,6 +25,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             select: {
               bossId: true,
               success: true,
+              recordedAt: true,
               phaseResults: { select: { name: true, order: true, reached: true } },
               playerResults: { select: { dps: true } },
             },
@@ -35,51 +35,68 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
     },
   });
 
-  const batches = rawBatches.map((batch) => {
-    const encounters = batch.logFiles
-      .map((f) => f.encounterResult)
-      .filter((e): e is NonNullable<typeof e> => e !== null);
+  const batches = rawBatches
+    .map((batch) => {
+      const encounters = batch.logFiles
+        .map((f) => f.encounterResult)
+        .filter((e): e is NonNullable<typeof e> => e !== null);
 
-    const kills = encounters.filter((e) => e.success).length;
-    const successRate =
-      encounters.length > 0 ? Math.round((kills / encounters.length) * 100) : null;
-    const avgGroupDps =
-      encounters.length > 0
-        ? Math.round(
-            encounters.reduce((sum, e) => sum + e.playerResults.reduce((s, p) => s + p.dps, 0), 0) /
-              encounters.length,
-          )
-        : 0;
+      const kills = encounters.filter((e) => e.success).length;
+      const successRate =
+        encounters.length > 0 ? Math.round((kills / encounters.length) * 100) : null;
+      const avgGroupDps =
+        encounters.length > 0
+          ? Math.round(
+              encounters.reduce(
+                (sum, e) => sum + e.playerResults.reduce((s, p) => s + p.dps, 0),
+                0,
+              ) / encounters.length,
+            )
+          : 0;
 
-    let furthestPhase: { name: string; order: number } | null = null;
-    for (const encounter of encounters) {
-      for (const phase of encounter.phaseResults) {
-        if (
-          phase.reached &&
-          isMainPhase(encounter.bossId, phase.name) &&
-          (!furthestPhase || phase.order > furthestPhase.order)
-        ) {
-          furthestPhase = phase;
+      let furthestPhase: { name: string; order: number } | null = null;
+      for (const encounter of encounters) {
+        for (const phase of encounter.phaseResults) {
+          if (
+            phase.reached &&
+            isMainPhase(encounter.bossId, phase.name) &&
+            (!furthestPhase || phase.order > furthestPhase.order)
+          ) {
+            furthestPhase = phase;
+          }
         }
       }
-    }
 
-    return {
-      id: batch.id,
-      label: batch.label,
-      createdAt: batch.createdAt,
-      attempts: encounters.length,
-      kills,
-      successRate,
-      avgGroupDps,
-      furthestPhase,
-    };
-  });
+      // Prefer the earliest in-game recording time across the batch's logs
+      // (EI's timeStartStd) over upload time, so the trend/list reflect
+      // when the raid actually happened, not upload order. Falls back to
+      // `createdAt` for logs parsed before that field existed.
+      const recordedTimestamps = encounters
+        .map((e) => e.recordedAt)
+        .filter((d): d is Date => d !== null);
+      const occurredAt =
+        recordedTimestamps.length > 0
+          ? new Date(Math.min(...recordedTimestamps.map((d) => d.getTime())))
+          : batch.createdAt;
+
+      return {
+        id: batch.id,
+        label: batch.label,
+        createdAt: batch.createdAt,
+        occurredAt,
+        attempts: encounters.length,
+        kills,
+        successRate,
+        avgGroupDps,
+        furthestPhase,
+      };
+    })
+    .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
 
   const trendPoints = batches
     .slice(0, 10)
     .reverse()
-    .filter((b) => b.successRate !== null);
+    .filter((b) => b.attempts > 0);
 
   return (
     <div className="px-10 py-8">
@@ -106,7 +123,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
       {trendPoints.length >= 2 ? (
         <Card size="3" className="border-line bg-surface mb-6 border">
           <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
-            Erfolgsquote &amp; Ø Gruppen-DPS · letzte {trendPoints.length} Abende
+            Ø Gruppen-DPS · letzte {trendPoints.length} Abende
           </div>
           <TrendChart points={trendPoints} />
         </Card>

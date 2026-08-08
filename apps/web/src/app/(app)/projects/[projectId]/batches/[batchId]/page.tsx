@@ -106,7 +106,16 @@ export default async function BatchDetailPage(
       agg.order = Math.min(agg.order, phase.order);
       if (phase.reached) agg.reachedCount += 1;
       for (const event of phase.mechanicEvents) {
-        if (event.mechanicName === "Dead" || isNoiseMechanic(event.mechanicName)) continue;
+        // "Jaws.Cast" is a synthetic orientation marker (every cast, see
+        // cast-markers.ts on the worker) — not a fail, so it's excluded
+        // from fail-count aggregation here even though it's still included
+        // in the raw `mechanics` array below (that feeds the timeline tick).
+        if (
+          event.mechanicName === "Dead" ||
+          event.mechanicName === "Jaws.Cast" ||
+          isNoiseMechanic(event.mechanicName)
+        )
+          continue;
         const entry = agg.mechanics.get(event.mechanicName) ?? {
           displayName: translateMechanicName(event.mechanicName, event.displayName),
           count: 0,
@@ -167,7 +176,12 @@ export default async function BatchDetailPage(
         reached: p.reached,
         success: p.success,
         mechanics: p.mechanicEvents
-          .filter((m) => m.mechanicName !== "Dead" && !isNoiseMechanic(m.mechanicName))
+          .filter(
+            (m) =>
+              m.mechanicName !== "Dead" &&
+              m.mechanicName !== "Jaws.Cast" &&
+              !isNoiseMechanic(m.mechanicName),
+          )
           .map((m) => ({
             name: translateMechanicName(m.mechanicName, m.displayName),
             player: m.playerResult?.characterName ?? null,

@@ -3,7 +3,7 @@ import type { Readable } from "node:stream";
 // not reliably expose its `.parser` property as a named export, so this
 // must be a default import, not `import { parser } from "stream-json"`.
 import createTokenParser from "stream-json";
-import type { EiPlayer, EiRoot } from "./ei-json-shape";
+import type { EiPlayer, EiRoot, EiTarget } from "./ei-json-shape";
 import { type JsonToken, type JsonValue, SkipTracker, ValueBuilder } from "./value-builder";
 
 /**
@@ -25,9 +25,18 @@ const ROOT_KEEP_WHOLE = new Set([
   "mechanics",
   "fightName",
   "triggerID",
+  // Small (tens of KB): id -> name lookup for the skill ids in `targets[].rotation`.
+  "skillMap",
+  "timeStartStd",
 ]);
 
 const PLAYER_KEEP_WHOLE = new Set(["account", "name", "profession", "group", "dpsAll", "defenses"]);
+
+// `targets[]` also carries per-target damage/buff/combat-replay breakdowns
+// (the bulk of the JSON's ~1MB `targets` payload) — keep only the cast log
+// ("rotation") used to detect boss-ability casts independent of whether a
+// player got hit (unlike `mechanics[]`, which only records hits).
+const TARGET_KEEP_WHOLE = new Set(["name", "rotation"]);
 
 type State =
   | "expect-root-start"
@@ -40,11 +49,17 @@ type State =
   | "player-value-dispatch"
   | "filling-player-keep"
   | "skipping-player"
+  | "in-targets-array"
+  | "target-key"
+  | "target-value-dispatch"
+  | "filling-target-keep"
+  | "skipping-target"
   | "done";
 
 export interface ExtractedEncounter {
   root: EiRoot;
   players: EiPlayer[];
+  targets: EiTarget[];
 }
 
 export function extractEncounterFromStream(jsonStream: Readable): Promise<ExtractedEncounter> {
@@ -76,6 +91,12 @@ export function extractEncounterFromStream(jsonStream: Readable): Promise<Extrac
     let playerSkip: SkipTracker | undefined;
     const players: EiPlayer[] = [];
 
+    let currentTarget: Record<string, JsonValue> | undefined;
+    let currentTargetKey: string | undefined;
+    let targetBuilder: ValueBuilder | undefined;
+    let targetSkip: SkipTracker | undefined;
+    const targets: EiTarget[] = [];
+
     function handleToken(token: JsonToken): void {
       switch (state) {
         case "expect-root-start":
@@ -104,6 +125,13 @@ export function extractEncounterFromStream(jsonStream: Readable): Promise<Extrac
               throw new Error('Expected "players" to be an array');
             }
             state = "in-players-array";
+            return;
+          }
+          if (key === "targets") {
+            if (token.name !== "startArray") {
+              throw new Error('Expected "targets" to be an array');
+            }
+            state = "in-targets-array";
             return;
           }
           if (ROOT_KEEP_WHOLE.has(key)) {
@@ -214,6 +242,74 @@ export function extractEncounterFromStream(jsonStream: Readable): Promise<Extrac
           }
           return;
 
+        case "in-targets-array":
+          if (token.name === "endArray") {
+            state = "root-key";
+            return;
+          }
+          if (token.name !== "startObject") {
+            throw new Error(`Expected a target object, got "${token.name}"`);
+          }
+          currentTarget = {};
+          state = "target-key";
+          return;
+
+        case "target-key":
+          if (token.name === "endObject") {
+            targets.push(currentTarget as unknown as EiTarget);
+            currentTarget = undefined;
+            state = "in-targets-array";
+            return;
+          }
+          if (token.name !== "keyValue") {
+            throw new Error(`Expected a target object key, got "${token.name}"`);
+          }
+          currentTargetKey = String(token.value);
+          state = "target-value-dispatch";
+          return;
+
+        case "target-value-dispatch": {
+          const key = currentTargetKey as string;
+          if (TARGET_KEEP_WHOLE.has(key)) {
+            targetBuilder = new ValueBuilder();
+            targetBuilder.push(token);
+            if (targetBuilder.done) {
+              currentTarget![key] = targetBuilder.value;
+              targetBuilder = undefined;
+              state = "target-key";
+            } else {
+              state = "filling-target-keep";
+            }
+          } else {
+            targetSkip = new SkipTracker();
+            targetSkip.push(token);
+            if (targetSkip.done) {
+              targetSkip = undefined;
+              state = "target-key";
+            } else {
+              state = "skipping-target";
+            }
+          }
+          return;
+        }
+
+        case "filling-target-keep":
+          targetBuilder!.push(token);
+          if (targetBuilder!.done) {
+            currentTarget![currentTargetKey as string] = targetBuilder!.value;
+            targetBuilder = undefined;
+            state = "target-key";
+          }
+          return;
+
+        case "skipping-target":
+          targetSkip!.push(token);
+          if (targetSkip!.done) {
+            targetSkip = undefined;
+            state = "target-key";
+          }
+          return;
+
         case "done":
           return;
       }
@@ -239,7 +335,7 @@ export function extractEncounterFromStream(jsonStream: Readable): Promise<Extrac
         reject(new Error('EI JSON root is missing a non-empty "phases" array'));
         return;
       }
-      resolve({ root: root as unknown as EiRoot, players });
+      resolve({ root: root as unknown as EiRoot, players, targets });
     });
   });
 }

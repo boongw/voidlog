@@ -1,6 +1,7 @@
 import { MechanicCategory, prisma } from "@voidlog/db";
 import type { BossConfig, MechanicCategory as SharedMechanicCategory } from "@voidlog/shared";
-import { DEATH_MECHANIC_NAME } from "./ei-json-shape";
+import { CAST_MARKERS_BY_BOSS } from "../boss-configs/cast-markers";
+import { DEATH_MECHANIC_NAME, parseEiTimestamp } from "./ei-json-shape";
 import type { ExtractedEncounter } from "./extract-encounter";
 
 const CATEGORY_MAP: Record<SharedMechanicCategory, MechanicCategory> = {
@@ -38,7 +39,7 @@ export async function persistExtractedEncounter(
   extracted: ExtractedEncounter,
   bossConfig: BossConfig | undefined,
 ): Promise<string> {
-  const { root, players } = extracted;
+  const { root, players, targets } = extracted;
 
   const durationMs = root.durationMS ?? root.duration;
   if (typeof durationMs !== "number" || !Number.isFinite(durationMs)) {
@@ -69,6 +70,7 @@ export async function persistExtractedEncounter(
           bossName,
           success: root.success,
           durationMs: Math.round(durationMs),
+          recordedAt: parseEiTimestamp(root.timeStartStd) ?? null,
         },
       });
 
@@ -139,6 +141,28 @@ export async function persistExtractedEncounter(
               category,
               displayName,
               timeMs: Math.round(dataPoint.time),
+            },
+          });
+        }
+      }
+
+      // Boss-ability casts (see cast-markers.ts): unlike root.mechanics,
+      // these come from the target's own cast log, so they exist even when
+      // every player avoided the attack — no playerResultId, since a cast
+      // isn't attributable to any one player.
+      for (const marker of CAST_MARKERS_BY_BOSS[bossId] ?? []) {
+        const target = targets.find((t) => t.name === marker.targetName);
+        const rotationEntry = target?.rotation?.find((r) => r.id === marker.skillId);
+        for (const cast of rotationEntry?.skills ?? []) {
+          const phaseIndex = resolvePhaseIndex(cast.castTime);
+          await tx.mechanicEvent.create({
+            data: {
+              phaseResultId: phaseIdsInOrder[phaseIndex]!,
+              playerResultId: null,
+              mechanicName: marker.mechanicName,
+              category: MechanicCategory.BOSS_SPECIFIC,
+              displayName: marker.displayName,
+              timeMs: Math.round(cast.castTime),
             },
           });
         }

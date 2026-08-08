@@ -191,6 +191,21 @@ export function BatchAttempts({
                           }}
                         />
                       ))}
+                      {/* Orientation tick for Primordus's Jaws of Destruction — his
+                          key mechanic — so it's visible on the bar itself, not just
+                          as a generic fail marker in the row below. Driven by the
+                          synthetic "Jaws.Cast" marker (every cast, from the boss's
+                          own cast log), not "Jaws.H" (only casts that hit someone). */}
+                      {a.mechanics
+                        .filter((m) => m.mechanicName === "Jaws.Cast")
+                        .map((m, i) => (
+                          <span
+                            key={`jaws-${i}`}
+                            title={m.name}
+                            className="bg-foreground absolute top-0 h-2 w-px"
+                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                          />
+                        ))}
                     </span>
                     <span className="relative h-3 w-full">
                       {a.deaths.map((d, i) => (
@@ -203,21 +218,23 @@ export function BatchAttempts({
                           <Cross2Icon className="text-danger h-3 w-3" />
                         </span>
                       ))}
-                      {a.mechanics.map((m, i) => (
-                        <span
-                          key={`mech-${i}`}
-                          title={m.name}
-                          className="absolute top-0 -translate-x-1/2"
-                          style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
-                        >
-                          {m.mechanicName === "Downed" ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
-                            <img src="/icons/downed.png" alt="" className="h-3.5 w-2.5" />
-                          ) : (
-                            <ExclamationTriangleIcon className="text-warning h-3 w-3" />
-                          )}
-                        </span>
-                      ))}
+                      {a.mechanics
+                        .filter((m) => m.mechanicName !== "Jaws.Cast")
+                        .map((m, i) => (
+                          <span
+                            key={`mech-${i}`}
+                            title={m.name}
+                            className="absolute top-0 -translate-x-1/2"
+                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                          >
+                            {m.mechanicName === "Downed" ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
+                              <img src="/icons/downed.png" alt="" className="h-3.5 w-2.5" />
+                            ) : (
+                              <ExclamationTriangleIcon className="text-warning h-3 w-3" />
+                            )}
+                          </span>
+                        ))}
                     </span>
                   </span>
                   <span className="text-muted-strong text-right text-xs">
