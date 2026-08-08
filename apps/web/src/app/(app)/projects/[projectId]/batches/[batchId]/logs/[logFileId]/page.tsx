@@ -97,7 +97,7 @@ export default async function LogAnalysisPage(
             const deathTime = earliestDeathByPlayer.get(p.id);
             return deathTime === undefined || deathTime > phase.startMs;
           });
-          const color = phaseColor(phase.order);
+          const color = phaseColor(phase.order, phase.name);
           return (
             <Card
               key={phase.id}

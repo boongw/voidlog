@@ -1,5 +1,6 @@
 "use client";
 
+import { Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Card, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useState } from "react";
@@ -114,7 +115,7 @@ export function BatchAttempts({
         </p>
         <div className="mb-7 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {batchPhaseStats.map((bp) => {
-            const color = phaseColor(bp.order);
+            const color = phaseColor(bp.order, bp.name);
             const reachedPct = bp.total > 0 ? Math.round((bp.reached / bp.total) * 100) : 0;
             return (
               <Card
@@ -176,37 +177,45 @@ export function BatchAttempts({
                     {a.success ? "Kill" : "Wipe"}
                   </span>
                   <span
-                    className="bg-line-soft relative h-2 justify-self-start rounded-sm"
+                    className="flex flex-col gap-1 justify-self-start"
                     style={{ width: `${Math.max((a.durationMs / maxDurationMs) * 100, 4)}%` }}
                   >
-                    {a.segments.map((seg) => (
-                      <span
-                        key={seg.order}
-                        title={seg.name}
-                        className="absolute top-0 h-2 rounded-[1px]"
-                        style={{
-                          left: `${seg.leftPct}%`,
-                          width: `${seg.widthPct}%`,
-                          background: phaseColor(seg.order),
-                        }}
-                      />
-                    ))}
-                    {a.deaths.map((d, i) => (
-                      <span
-                        key={`death-${i}`}
-                        title={`Tod${d.player ? ` — ${d.player}` : ""}`}
-                        className="bg-danger absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45"
-                        style={{ left: `${(d.timeMs / a.durationMs) * 100}%` }}
-                      />
-                    ))}
-                    {a.mechanics.map((m, i) => (
-                      <span
-                        key={`mech-${i}`}
-                        title={m.name}
-                        className="bg-primary absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-[1px]"
-                        style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
-                      />
-                    ))}
+                    <span className="bg-line-soft relative h-2 w-full rounded-sm">
+                      {a.segments.map((seg) => (
+                        <span
+                          key={seg.order}
+                          title={seg.name}
+                          className="absolute top-0 h-2 rounded-[1px]"
+                          style={{
+                            left: `${seg.leftPct}%`,
+                            width: `${seg.widthPct}%`,
+                            background: phaseColor(seg.order, seg.name),
+                          }}
+                        />
+                      ))}
+                    </span>
+                    <span className="relative h-3 w-full">
+                      {a.deaths.map((d, i) => (
+                        <span
+                          key={`death-${i}`}
+                          title={`Tod${d.player ? ` — ${d.player}` : ""}`}
+                          className="absolute top-0 -translate-x-1/2"
+                          style={{ left: `${(d.timeMs / a.durationMs) * 100}%` }}
+                        >
+                          <Cross2Icon className="text-danger h-3 w-3" />
+                        </span>
+                      ))}
+                      {a.mechanics.map((m, i) => (
+                        <span
+                          key={`mech-${i}`}
+                          title={m.name}
+                          className="absolute top-0 -translate-x-1/2"
+                          style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                        >
+                          <ExclamationTriangleIcon className="text-warning h-3 w-3" />
+                        </span>
+                      ))}
+                    </span>
                   </span>
                   <span className="text-muted-strong text-right text-xs">
                     {formatDuration(a.durationMs)}
@@ -219,7 +228,7 @@ export function BatchAttempts({
                         <div
                           key={phase.order}
                           className="bg-surface-2 border-line border-l-3 rounded-sm border-y border-r px-2.5 py-2"
-                          style={{ borderLeftColor: phaseColor(phase.order) }}
+                          style={{ borderLeftColor: phaseColor(phase.order, phase.name) }}
                         >
                           <div className="text-muted mb-1 text-[10px] uppercase">{phase.name}</div>
                           <div className="text-foreground text-xs font-semibold">

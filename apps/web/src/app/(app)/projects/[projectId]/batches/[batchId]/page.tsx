@@ -120,21 +120,25 @@ export default async function BatchDetailPage(
     }));
 
   const attemptRows: AttemptRow[] = encounters.map(({ logFile, encounter }, i) => {
-    const reachedPhases = encounter.phaseResults.filter((p) => p.reached);
-    const furthest =
-      reachedPhases.filter((p) => isMainPhase(encounter.bossId, p.name)).at(-1) ?? null;
+    const mainPhases = encounter.phaseResults.filter((p) => isMainPhase(encounter.bossId, p.name));
+    const reachedMainPhases = mainPhases.filter((p) => p.reached);
+    const furthest = reachedMainPhases.at(-1) ?? null;
     return {
       logFileId: logFile.id,
       n: i + 1,
       success: encounter.success,
       furthestPhase: furthest ? { name: furthest.name, order: furthest.order } : null,
       durationMs: encounter.durationMs,
-      segments: reachedPhases.map((p) => ({
+      segments: reachedMainPhases.map((p) => ({
         name: p.name,
         order: p.order,
         leftPct: (p.startMs / encounter.durationMs) * 100,
         widthPct: ((p.endMs - p.startMs) / encounter.durationMs) * 100,
       })),
+      // Deaths/mechanic fails are time markers, not phase-progression UI — keep
+      // them from every phase result (including EI's auto-generated breakbar
+      // sub-phases, where most mechanic-fail events actually get recorded),
+      // unlike segments/phases below which are curated to main boss phases.
       deaths: encounter.phaseResults.flatMap((p) =>
         p.mechanicEvents
           .filter((m) => m.mechanicName === "Dead")
@@ -145,7 +149,7 @@ export default async function BatchDetailPage(
           .filter((m) => m.mechanicName !== "Dead")
           .map((m) => ({ timeMs: m.timeMs, name: m.displayName })),
       ),
-      phases: encounter.phaseResults.map((p) => ({
+      phases: mainPhases.map((p) => ({
         name: p.name,
         order: p.order,
         reached: p.reached,
