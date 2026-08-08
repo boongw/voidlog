@@ -1,11 +1,20 @@
-import { MechanicCategory, prisma } from "@voidlog/db";
+import { LogFileStatus, MechanicCategory, prisma } from "@voidlog/db";
 import { Card } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
 import { PhaseBadge } from "@/components/phase-badge";
+import { isMainPhase } from "@/lib/main-phases";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 import { BatchAttempts, type AttemptRow, type BatchPhaseStat } from "./batch-attempts";
 import { DeleteBatchButton } from "./delete-batch-button";
+import { RetryLogButton } from "./retry-log-button";
+
+// storageKeyRaw looks like "raw/<batchId>/<uuid>-<sanitized filename>" — strip
+// the batch/uuid prefix so failed uploads show the original filename.
+function displayFileName(storageKeyRaw: string): string {
+  const last = storageKeyRaw.split("/").pop() ?? storageKeyRaw;
+  return last.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/, "");
+}
 
 export default async function BatchDetailPage(
   props: PageProps<"/projects/[projectId]/batches/[batchId]">,
@@ -45,6 +54,8 @@ export default async function BatchDetailPage(
     )
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
+  const failedLogFiles = batch.logFiles.filter((f) => f.status === LogFileStatus.FAILED);
+
   const attempts = encounters.length;
   const kills = encounters.filter((e) => e.encounter.success).length;
   const successRate = attempts > 0 ? Math.round((kills / attempts) * 100) : null;
@@ -57,7 +68,11 @@ export default async function BatchDetailPage(
   let furthestPhase: { name: string; order: number } | null = null;
   for (const { encounter } of encounters) {
     for (const phase of encounter.phaseResults) {
-      if (phase.reached && (!furthestPhase || phase.order > furthestPhase.order)) {
+      if (
+        phase.reached &&
+        isMainPhase(encounter.bossId, phase.name) &&
+        (!furthestPhase || phase.order > furthestPhase.order)
+      ) {
         furthestPhase = phase;
       }
     }
@@ -74,6 +89,7 @@ export default async function BatchDetailPage(
   >();
   for (const { encounter } of encounters) {
     for (const phase of encounter.phaseResults) {
+      if (!isMainPhase(encounter.bossId, phase.name)) continue;
       const agg = phaseAgg.get(phase.order) ?? {
         name: phase.name,
         order: phase.order,
@@ -105,7 +121,8 @@ export default async function BatchDetailPage(
 
   const attemptRows: AttemptRow[] = encounters.map(({ logFile, encounter }, i) => {
     const reachedPhases = encounter.phaseResults.filter((p) => p.reached);
-    const furthest = reachedPhases.at(-1) ?? null;
+    const furthest =
+      reachedPhases.filter((p) => isMainPhase(encounter.bossId, p.name)).at(-1) ?? null;
     return {
       logFileId: logFile.id,
       n: i + 1,
@@ -184,6 +201,29 @@ export default async function BatchDetailPage(
           )}
         </Card>
       </div>
+
+      {failedLogFiles.length > 0 ? (
+        <div className="mb-6">
+          <div className="text-muted-strong mb-2.5 text-sm font-semibold">
+            Fehlgeschlagene Uploads
+          </div>
+          <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
+            {failedLogFiles.map((logFile) => (
+              <div key={logFile.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-foreground truncate font-mono text-xs">
+                    {displayFileName(logFile.storageKeyRaw)}
+                  </div>
+                  {logFile.errorMessage ? (
+                    <div className="text-danger mt-1 truncate text-xs">{logFile.errorMessage}</div>
+                  ) : null}
+                </div>
+                <RetryLogButton logFileId={logFile.id} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <BatchAttempts
         projectId={projectId}
