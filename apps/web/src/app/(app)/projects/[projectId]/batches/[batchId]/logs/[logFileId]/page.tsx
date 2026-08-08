@@ -2,6 +2,7 @@ import { prisma } from "@voidlog/db";
 import { Card } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
 import { phaseColor } from "@/components/phase-badge";
+import { isNoiseMechanic } from "@/lib/mechanics";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 
@@ -134,22 +135,24 @@ export default async function LogAnalysisPage(
                 </span>
               </div>
 
-              {phase.mechanicEvents.length > 0 ? (
+              {phase.mechanicEvents.some((e) => !isNoiseMechanic(e.mechanicName)) ? (
                 <div className="border-line-soft mt-3 flex flex-wrap gap-2 border-t pt-3">
-                  {phase.mechanicEvents.map((event) => (
-                    <span
-                      key={event.id}
-                      className="border-line bg-surface-2 flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs"
-                    >
-                      <span className="bg-primary h-2 w-2 rounded-[1px]" />
-                      <span className="text-muted-strong">{event.displayName}</span>
-                      {event.playerResult ? (
-                        <span className="text-danger font-semibold">
-                          · {event.playerResult.characterName}
-                        </span>
-                      ) : null}
-                    </span>
-                  ))}
+                  {phase.mechanicEvents
+                    .filter((event) => !isNoiseMechanic(event.mechanicName))
+                    .map((event) => (
+                      <span
+                        key={event.id}
+                        className="border-line bg-surface-2 flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs"
+                      >
+                        <span className="bg-primary h-2 w-2 rounded-[1px]" />
+                        <span className="text-muted-strong">{event.displayName}</span>
+                        {event.playerResult ? (
+                          <span className="text-danger font-semibold">
+                            · {event.playerResult.characterName}
+                          </span>
+                        ) : null}
+                      </span>
+                    ))}
                 </div>
               ) : null}
             </Card>
