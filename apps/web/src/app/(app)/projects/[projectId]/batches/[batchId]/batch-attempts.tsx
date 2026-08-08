@@ -48,6 +48,7 @@ export function BatchAttempts({
   batchPhaseStats: BatchPhaseStat[];
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
+  const maxDurationMs = Math.max(1, ...attempts.map((a) => a.durationMs));
 
   return (
     <Tabs.Root defaultValue="table">
@@ -174,7 +175,10 @@ export function BatchAttempts({
                   >
                     {a.success ? "Kill" : "Wipe"}
                   </span>
-                  <span className="bg-line-soft relative h-2 rounded-sm">
+                  <span
+                    className="bg-line-soft relative h-2 justify-self-start rounded-sm"
+                    style={{ width: `${Math.max((a.durationMs / maxDurationMs) * 100, 4)}%` }}
+                  >
                     {a.segments.map((seg) => (
                       <span
                         key={seg.order}
