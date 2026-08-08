@@ -119,7 +119,7 @@ export function BatchAttempts({
             const reachedPct = bp.total > 0 ? Math.round((bp.reached / bp.total) * 100) : 0;
             return (
               <Card
-                key={bp.order}
+                key={bp.name}
                 size="2"
                 className="border-line bg-surface border"
                 style={{ borderTop: `3px solid ${color}` }}

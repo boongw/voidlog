@@ -79,8 +79,12 @@ export default async function BatchDetailPage(
     }
   }
 
+  // Keyed by phase *name*, not order: EI assigns `order` per attempt based
+  // on how many breakbar/CM sub-phases fired before it, so the same named
+  // phase (e.g. "Purification 2") can land at different order values across
+  // attempts. Grouping by order would then split it into duplicate cards.
   const phaseAgg = new Map<
-    number,
+    string,
     {
       name: string;
       order: number;
@@ -91,12 +95,13 @@ export default async function BatchDetailPage(
   for (const { encounter } of encounters) {
     for (const phase of encounter.phaseResults) {
       if (!isMainPhase(encounter.bossId, phase.name)) continue;
-      const agg = phaseAgg.get(phase.order) ?? {
+      const agg = phaseAgg.get(phase.name) ?? {
         name: phase.name,
         order: phase.order,
         reachedCount: 0,
         mechanics: new Map<string, { displayName: string; count: number }>(),
       };
+      agg.order = Math.min(agg.order, phase.order);
       if (phase.reached) agg.reachedCount += 1;
       for (const event of phase.mechanicEvents) {
         if (event.mechanicName === "Dead" || isNoiseMechanic(event.mechanicName)) continue;
@@ -107,7 +112,7 @@ export default async function BatchDetailPage(
         entry.count += 1;
         agg.mechanics.set(event.mechanicName, entry);
       }
-      phaseAgg.set(phase.order, agg);
+      phaseAgg.set(phase.name, agg);
     }
   }
   const batchPhaseStats: BatchPhaseStat[] = [...phaseAgg.values()]
