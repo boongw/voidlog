@@ -41,7 +41,7 @@ const MECHANIC_NAMES: Record<string, string> = {
   "Spread.H": "Spread Hit",
   "Orb Push": "Orb gestoßen",
   "NopeRopes.Achiv.L": "Erfolg „Nope Ropes“ verpasst",
-  "NopeRopes.Achiv.K": "Erfolg „Nope Ropes“ erhalten",
+  "NopeRopes.Achiv.K": "Erfolg „Nope Ropes“ behalten",
   "VoidExp.H": "Void-Explosion — getroffen",
   "VoidExp.Champ.H": "Void-Explosion (Champion) — getroffen",
   "MagicDisc.H": "Magieentladung — getroffen",
@@ -61,6 +61,9 @@ const MECHANIC_NAMES: Record<string, string> = {
   // Primordus
   "Slam.H": "Schlag Primordus' — getroffen",
   "Jaws.H": "Kiefer der Zerstörung — getroffen",
+  // Synthetic marker (not a raw EI mechanic) — every cast of Jaws of
+  // Destruction from the boss's own cast log, not just the ones that hit.
+  "Jaws.Cast": "Kiefer der Zerstörung — Angriff",
 
   // Kralkatorrik
   "Barrage.H": "Kristall-Sperrfeuer — getroffen",
