@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
 import { PhaseBadge } from "@/components/phase-badge";
 import { Sidebar } from "@/components/sidebar";
+import { isMainPhase } from "@/lib/main-phases";
 import { requireSession } from "@/lib/session";
 
 export default async function DashboardPage() {
@@ -21,6 +22,7 @@ export default async function DashboardPage() {
             select: {
               encounterResult: {
                 select: {
+                  bossId: true,
                   success: true,
                   phaseResults: { select: { name: true, order: true, reached: true } },
                 },
@@ -45,9 +47,15 @@ export default async function DashboardPage() {
         : null;
 
     let furthestPhase: { name: string; order: number } | null = null;
-    for (const phase of encounters.flatMap((e) => e.phaseResults)) {
-      if (phase.reached && (!furthestPhase || phase.order > furthestPhase.order)) {
-        furthestPhase = phase;
+    for (const encounter of encounters) {
+      for (const phase of encounter.phaseResults) {
+        if (
+          phase.reached &&
+          isMainPhase(encounter.bossId, phase.name) &&
+          (!furthestPhase || phase.order > furthestPhase.order)
+        ) {
+          furthestPhase = phase;
+        }
       }
     }
 

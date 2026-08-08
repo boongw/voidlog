@@ -2,6 +2,7 @@ import { ProjectRole, prisma } from "@voidlog/db";
 import { Card, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { PhaseBadge } from "@/components/phase-badge";
+import { isMainPhase } from "@/lib/main-phases";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 import { DeleteProjectButton } from "./delete-project-button";
@@ -23,6 +24,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         select: {
           encounterResult: {
             select: {
+              bossId: true,
               success: true,
               phaseResults: { select: { name: true, order: true, reached: true } },
               playerResults: { select: { dps: true } },
@@ -50,9 +52,15 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         : 0;
 
     let furthestPhase: { name: string; order: number } | null = null;
-    for (const phase of encounters.flatMap((e) => e.phaseResults)) {
-      if (phase.reached && (!furthestPhase || phase.order > furthestPhase.order)) {
-        furthestPhase = phase;
+    for (const encounter of encounters) {
+      for (const phase of encounter.phaseResults) {
+        if (
+          phase.reached &&
+          isMainPhase(encounter.bossId, phase.name) &&
+          (!furthestPhase || phase.order > furthestPhase.order)
+        ) {
+          furthestPhase = phase;
+        }
       }
     }
 
