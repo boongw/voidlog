@@ -59,30 +59,33 @@ const MECHANIC_NAMES: Record<string, string> = {
   "J.Meteor.H": "Meteor Jormags — getroffen",
 
   // Primordus
-  "Slam.H": "Schlag Primordus' — getroffen",
-  "Jaws.H": "Kiefer der Zerstörung — getroffen",
-  // Synthetic marker (not a raw EI mechanic) — every cast of Jaws of
-  // Destruction from the boss's own cast log, not just the ones that hit.
-  "Jaws.Cast": "Kiefer der Zerstörung — Angriff",
+  "Slam.H": "Lava Slam (Chin) Hit",
+  "Jaws.H": "Kiefer der Zerstörung (Bite) Hit",
+  // Synthetic markers (not a raw EI mechanic) — every cast from the boss's
+  // own cast log (targets[].rotation), not just the ones that hit.
+  "Jaws.Cast": "Kiefer der Zerstörung (Bite)",
+  "Slam.Cast": "Lava Slam (Chin)",
 
   // Kralkatorrik
-  "Barrage.H": "Kristall-Sperrfeuer — getroffen",
-  "Beam.H": "Gebrandeter Strahl Kralkatorriks — getroffen",
+  "Barrage.H": "Meteor Hit",
+  "Beam.H": "Gebrandeter Strahl",
+  "Beam.Cast": "Branding Beam",
   "Artillery.H": "Brandbomber-Artillerie — getroffen",
   "K.Pool.H": "Kralkatorriks Void-Pool — getroffen",
 
   // Purification 2
   "Goop.H": "Herz-Schleim — getroffen",
-  "Bees.H": "Bienen des Herzens — getroffen",
+  "Bees.H": "Bienen des Herzens Hit",
   "Grav.Cru.H": "Schwerkraft-Zerquetschen — getroffen",
   "NigEpoch.H": "Alptraum-Epoche — getroffen",
 
   // Mordremoth
   "ShckWv.H": "Mordremoths Schockwelle — getroffen",
   "ShckWv.Start": "Mordremoths Schockwelle — gestartet",
-  "M.Poison.H": "Mordremoths Giftgebrüll — getroffen",
-  "Kick.H": "Tritt des Void-Schädelspalters — getroffen",
-  "ChrgShot.H": "Aufgeladener Schuss des Schädelspalters — getroffen",
+  "ShckWv.Cast": "Mordremoths Schockwelle — Angriff",
+  "M.Poison.H": "Mordremoths Giftgebrüll Hit",
+  "Kick.H": "Tritt des Void-Schädelspalters",
+  "ChrgShot.H": "Schädelspalters Schuss",
 
   // Giants
   "Scream.G.CC": "Todesschrei des Riesen — betäubt",
@@ -90,7 +93,8 @@ const MECHANIC_NAMES: Record<string, string> = {
   "Stomp.CC": "Stampfer des Riesen — betäubt",
 
   // Zhaitan
-  "Scream.H": "Schrei Zhaitans — getroffen",
+  "Scream.H": "Zhaitans Scream",
+  "Scream.Cast": "Zhaitans Schrei — Angriff",
   "Z.Poison.H": "Gift Zhaitans — getroffen",
   "T.Slam.H": "Schwanzschlag Zhaitans — getroffen",
 

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PhaseBadge } from "@/components/phase-badge";
 import { isMainPhase } from "@/lib/main-phases";
 import { translateMechanicName } from "@/lib/mechanic-names";
-import { isNoiseMechanic } from "@/lib/mechanics";
+import { isNoiseMechanic, isVisibleCastMarker } from "@/lib/mechanics";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 import { BatchAttempts, type AttemptRow, type BatchPhaseStat } from "./batch-attempts";
@@ -106,13 +106,14 @@ export default async function BatchDetailPage(
       agg.order = Math.min(agg.order, phase.order);
       if (phase.reached) agg.reachedCount += 1;
       for (const event of phase.mechanicEvents) {
-        // "Jaws.Cast" is a synthetic orientation marker (every cast, see
-        // cast-markers.ts on the worker) — not a fail, so it's excluded
-        // from fail-count aggregation here even though it's still included
-        // in the raw `mechanics` array below (that feeds the timeline tick).
+        // Visible cast markers (Jaws/Slam/Beam/ShckWv/Scream — see
+        // cast-markers.ts on the worker) are synthetic orientation markers
+        // (every cast), not a fail, so they're excluded from fail-count
+        // aggregation here even though they're still included in the raw
+        // `mechanics` array below (that feeds the timeline tick).
         if (
           event.mechanicName === "Dead" ||
-          event.mechanicName === "Jaws.Cast" ||
+          isVisibleCastMarker(event.mechanicName) ||
           isNoiseMechanic(event.mechanicName)
         )
           continue;
@@ -179,7 +180,7 @@ export default async function BatchDetailPage(
           .filter(
             (m) =>
               m.mechanicName !== "Dead" &&
-              m.mechanicName !== "Jaws.Cast" &&
+              !isVisibleCastMarker(m.mechanicName) &&
               !isNoiseMechanic(m.mechanicName),
           )
           .map((m) => ({

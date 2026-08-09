@@ -1,6 +1,10 @@
 import { MechanicCategory, prisma } from "@voidlog/db";
 import type { BossConfig, MechanicCategory as SharedMechanicCategory } from "@voidlog/shared";
-import { CAST_MARKERS_BY_BOSS } from "../boss-configs/cast-markers";
+import {
+  CAST_TARGET_GROUPS_BY_BOSS,
+  CURATED_CAST_MARKERS_BY_BOSS,
+  EXCLUDED_ROTATION_SKILL_IDS,
+} from "../boss-configs/cast-markers";
 import { DEATH_MECHANIC_NAME, parseEiTimestamp } from "./ei-json-shape";
 import type { ExtractedEncounter } from "./extract-encounter";
 
@@ -118,11 +122,24 @@ export async function persistExtractedEncounter(
         phaseIdsInOrder.push(createdPhase.id);
       }
 
+      // A timestamp usually falls inside several overlapping phases at once
+      // — e.g. "Full Fight" spans the entire encounter — so picking the
+      // *first* containing phase (in start-ascending order) always matched
+      // that catch-all instead of the actual dragon/sub-phase. Pick the
+      // *narrowest* containing phase instead.
       function resolvePhaseIndex(timeMs: number): number {
+        let bestIndex = -1;
+        let bestSpan = Infinity;
         for (let i = 0; i < sortedPhases.length; i++) {
           const phase = sortedPhases[i]!;
-          if (timeMs >= phase.start && timeMs < phase.end) return i;
+          if (timeMs < phase.start || timeMs >= phase.end) continue;
+          const span = phase.end - phase.start;
+          if (span < bestSpan) {
+            bestSpan = span;
+            bestIndex = i;
+          }
         }
+        if (bestIndex !== -1) return bestIndex;
         return timeMs < sortedPhases[0]!.start ? 0 : sortedPhases.length - 1;
       }
 
@@ -150,7 +167,10 @@ export async function persistExtractedEncounter(
       // these come from the target's own cast log, so they exist even when
       // every player avoided the attack — no playerResultId, since a cast
       // isn't attributable to any one player.
-      for (const marker of CAST_MARKERS_BY_BOSS[bossId] ?? []) {
+      const curatedMarkers = CURATED_CAST_MARKERS_BY_BOSS[bossId] ?? [];
+      const curatedKeys = new Set(curatedMarkers.map((m) => `${m.targetName}::${m.skillId}`));
+
+      for (const marker of curatedMarkers) {
         const target = targets.find((t) => t.name === marker.targetName);
         const rotationEntry = target?.rotation?.find((r) => r.id === marker.skillId);
         for (const cast of rotationEntry?.skills ?? []) {
@@ -165,6 +185,37 @@ export async function persistExtractedEncounter(
               timeMs: Math.round(cast.castTime),
             },
           });
+        }
+      }
+
+      // Every other cast for these targets, captured generically (not
+      // individually named/curated yet) so the data already exists for
+      // later analysis. Giants: all instances in a group share one
+      // mechanicName — which specific giant cast it isn't tracked.
+      for (const group of CAST_TARGET_GROUPS_BY_BOSS[bossId] ?? []) {
+        for (const targetName of group.targetNames) {
+          for (const target of targets.filter((t) => t.name === targetName)) {
+            for (const rot of target.rotation ?? []) {
+              if (EXCLUDED_ROTATION_SKILL_IDS.has(rot.id)) continue;
+              if (curatedKeys.has(`${targetName}::${rot.id}`)) continue;
+
+              const skillName = root.skillMap[`s${rot.id}`]?.name ?? `Skill ${rot.id}`;
+              const mechanicName = `${group.groupKey}.Cast.${rot.id}`;
+              for (const cast of rot.skills) {
+                const phaseIndex = resolvePhaseIndex(cast.castTime);
+                await tx.mechanicEvent.create({
+                  data: {
+                    phaseResultId: phaseIdsInOrder[phaseIndex]!,
+                    playerResultId: null,
+                    mechanicName,
+                    category: MechanicCategory.BOSS_SPECIFIC,
+                    displayName: skillName,
+                    timeMs: Math.round(cast.castTime),
+                  },
+                });
+              }
+            }
+          }
         }
       }
 

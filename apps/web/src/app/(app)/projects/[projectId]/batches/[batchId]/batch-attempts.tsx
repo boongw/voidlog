@@ -5,6 +5,20 @@ import { Card, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useState } from "react";
 import { PhaseBadge, phaseColor } from "@/components/phase-badge";
+import { isVisibleCastMarker } from "@/lib/mechanics";
+
+// Plain white orientation tick — the default style for a curated cast
+// marker (see cast-markers.ts on the worker) that doesn't need its own
+// distinct look.
+function PlainTick({ title, leftPct }: { title: string; leftPct: number }) {
+  return (
+    <span
+      title={title}
+      className="bg-foreground absolute top-0 h-2 w-px"
+      style={{ left: `${leftPct}%` }}
+    />
+  );
+}
 
 export interface AttemptRow {
   logFileId: string;
@@ -191,20 +205,65 @@ export function BatchAttempts({
                           }}
                         />
                       ))}
-                      {/* Orientation tick for Primordus's Jaws of Destruction — his
-                          key mechanic — so it's visible on the bar itself, not just
-                          as a generic fail marker in the row below. Driven by the
-                          synthetic "Jaws.Cast" marker (every cast, from the boss's
-                          own cast log), not "Jaws.H" (only casts that hit someone). */}
+                      {/* Orientation ticks for the boss's key mechanics — visible on
+                          the bar itself, not just as generic fail markers in the row
+                          below. Driven by synthetic "*.Cast" markers (every cast, from
+                          the boss's own cast log), not the ".H" hit-only mechanics. */}
                       {a.mechanics
                         .filter((m) => m.mechanicName === "Jaws.Cast")
                         .map((m, i) => (
-                          <span
+                          <PlainTick
                             key={`jaws-${i}`}
                             title={m.name}
-                            className="bg-foreground absolute top-0 h-2 w-px"
-                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                            leftPct={(m.timeMs / a.durationMs) * 100}
                           />
+                        ))}
+                      {a.mechanics
+                        .filter((m) => m.mechanicName === "ShckWv.Cast")
+                        .map((m, i) => (
+                          <PlainTick
+                            key={`shckwv-${i}`}
+                            title={m.name}
+                            leftPct={(m.timeMs / a.durationMs) * 100}
+                          />
+                        ))}
+                      {a.mechanics
+                        .filter((m) => m.mechanicName === "Scream.Cast")
+                        .map((m, i) => (
+                          <PlainTick
+                            key={`scream-${i}`}
+                            title={m.name}
+                            leftPct={(m.timeMs / a.durationMs) * 100}
+                          />
+                        ))}
+                      {/* Lava Slam gets a distinct marker from Jaws (both happen during
+                          the Primordus phase, on the same bar) — a colored diamond
+                          instead of a plain line. */}
+                      {a.mechanics
+                        .filter((m) => m.mechanicName === "Slam.Cast")
+                        .map((m, i) => (
+                          <span
+                            key={`slam-${i}`}
+                            title={m.name}
+                            className="text-danger absolute top-0 -translate-x-1/2 text-[10px] leading-[8px]"
+                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                          >
+                            ◆
+                          </span>
+                        ))}
+                      {/* Branding Beam sweeps back and forth — alternate ">" / "<" per
+                          successive cast to hint at the direction. */}
+                      {a.mechanics
+                        .filter((m) => m.mechanicName === "Beam.Cast")
+                        .map((m, i) => (
+                          <span
+                            key={`beam-${i}`}
+                            title={m.name}
+                            className="text-foreground absolute top-0 -translate-x-1/2 text-[10px] font-bold leading-[8px]"
+                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                          >
+                            {i % 2 === 0 ? ">" : "<"}
+                          </span>
                         ))}
                     </span>
                     <span className="relative h-3 w-full">
@@ -219,7 +278,7 @@ export function BatchAttempts({
                         </span>
                       ))}
                       {a.mechanics
-                        .filter((m) => m.mechanicName !== "Jaws.Cast")
+                        .filter((m) => !isVisibleCastMarker(m.mechanicName))
                         .map((m, i) => (
                           <span
                             key={`mech-${i}`}
