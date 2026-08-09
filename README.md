@@ -1,38 +1,61 @@
-# voidlog — GW2 Log-Analyse-Plattform
+# voidlog — GW2 Log Analysis Platform
 
-Web-Anwendung zum Hochladen, Parsen und Vergleichen von Guild Wars 2
-EVTC-Kampflogs, organisiert in Projekten/Trainingsgruppen über mehrere
-Wochen/Monate. Architektur siehe
-[`docs/ADR-GW2-Log-Analyse-Plattform.md`](docs/ADR-GW2-Log-Analyse-Plattform.md).
+![Next.js](https://img.shields.io/badge/Next.js-16.3-black?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2-149eca?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6?logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-5.22-2d3748?logo=prisma&logoColor=white)
+![BullMQ](https://img.shields.io/badge/BullMQ-5.28-c53030?logo=redis&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
+![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
 
-Aktueller Stand: **Schritt 3 — Auth (Discord) + Basic UI.** Alle Kernseiten
-sind an echte Daten angebunden und mit Login geschützt, aber bewusst noch
-unstyled.
+A web app for uploading, parsing, and comparing Guild Wars 2 EVTC combat
+logs, organized into projects ("training groups") tracked across weeks or
+months. See [`docs/ADR-GW2-Log-Analyse-Plattform.md`](docs/ADR-GW2-Log-Analyse-Plattform.md)
+(German) for the architecture decisions behind the stack.
 
-## Struktur
+**Status:** core flow is complete and in real use — Discord login,
+project-scoped batch uploads, background parsing via dps.report, and a
+dark-themed dashboard covering project trends, per-batch stat cards, a
+phase/mechanic timeline per attempt, single-log breakdowns, and roster
+stats. Boss-specific curation (phase names, mechanic translations, cast
+markers) currently covers one encounter: Harvest Temple CM / "Die
+Drachenleere" (Dragon's End).
+
+## Contents
+
+- [Project layout](#project-layout)
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Development](#development)
+- [Testing](#testing)
+- [Other scripts](#other-scripts)
+- [Status & roadmap](#status--roadmap)
+- [License](#license)
+
+## Project layout
 
 ```
 apps/
-  web/      Next.js (App Router, TypeScript, Tailwind) — Frontend + BFF,
-            Auth.js mit Discord-Provider (ADR-007)
-  worker/   Node/TS-Service — Queue-Consumer, LogParser, Extraktion
+  web/      Next.js (App Router, TypeScript, Tailwind) — frontend + BFF,
+            Auth.js with Discord provider (ADR-007)
+  worker/   Node/TS service — queue consumer, LogParser, extraction
             (ADR-002/004/008/009)
 packages/
-  db/       Prisma-Schema (User/Project/ProjectMember/UploadBatch/LogFile/
+  db/       Prisma schema (User/Project/ProjectMember/UploadBatch/LogFile/
             EncounterResult/PhaseResult/MechanicEvent/PlayerResult,
-            Auth.js-Adaptertabellen)
-  shared/   Gemeinsame TS-Typen, S3-Storage-Client (ADR-003),
-            BullMQ-Queue-Konfiguration (ADR-004)
+            Auth.js adapter tables)
+  shared/   Shared TS types, S3 storage client (ADR-003),
+            BullMQ queue configuration (ADR-004)
 scripts/
-  test-e2e.ts          End-to-End-Test des Daten-/Job-Flusses (Schritt 2)
-  seed-test-session.ts Dev-Login-Bypass ohne echte Discord-Anwendung (siehe unten)
+  test-e2e.ts          End-to-end test of the data/job flow (step 2)
+  seed-test-session.ts Dev login bypass without a real Discord app (see below)
 ```
 
-## Voraussetzungen
+## Prerequisites
 
 - Node.js >= 20
-- [pnpm](https://pnpm.io/) (per `corepack enable` aktivierbar)
-- Docker + Docker Compose (für Postgres, Redis, MinIO)
+- [pnpm](https://pnpm.io/) (enable via `corepack enable`)
+- Docker + Docker Compose (for Postgres, Redis, MinIO)
 
 ## Setup
 
@@ -42,76 +65,83 @@ docker compose up -d
 cp .env.example .env
 ```
 
-### Discord-Anwendung registrieren (für echten Login)
+### Register a Discord application (for real login)
 
-1. Auf der [Discord Developer Portal](https://discord.com/developers/applications)
-   eine neue Anwendung anlegen.
-2. Unter "OAuth2" eine Redirect-URI hinzufügen:
+1. Create a new application in the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Under "OAuth2", add a redirect URI:
    `http://localhost:3000/api/auth/callback/discord`.
-3. `AUTH_DISCORD_ID` (Client ID) und `AUTH_DISCORD_SECRET` (Client Secret)
-   in `.env` eintragen.
+3. Enter `AUTH_DISCORD_ID` (client ID) and `AUTH_DISCORD_SECRET` (client secret)
+   in `.env`.
 
-### Ohne eigene Discord-Anwendung testen
+### Testing without your own Discord application
 
 ```bash
 pnpm seed:test-session
 ```
 
-Legt einen Test-User + eine gültige DB-Session an und gibt den
-Cookie-Wert (`authjs.session-token`) aus, den man im Browser (DevTools →
-Application → Cookies) für `127.0.0.1:3000` setzen kann, um die
-geschützten Seiten ohne echten OAuth-Flow zu sehen.
+Creates a test user and a valid DB session, and prints the cookie value
+(`authjs.session-token`) that you can set in the browser (DevTools →
+Application → Cookies) for `127.0.0.1:3000`, to view protected pages
+without a real OAuth flow.
 
-## Entwicklung
+## Development
 
 ```bash
 pnpm dev
 ```
 
-Startet `apps/web` (http://127.0.0.1:3000) und `apps/worker` parallel.
+Runs `apps/web` (http://127.0.0.1:3000) and `apps/worker` in parallel.
 
-Lokale Infrastruktur (Postgres auf `:5432`, Redis auf `:6379`, MinIO S3-API
-auf `:9000` / Console auf `:9001`, Login `voidlog` / `voidlog123`) läuft
-über `docker compose up -d` und wird beendet mit:
+Local infrastructure (Postgres on `:5432`, Redis on `:6379`, MinIO S3 API
+on `:9000` / console on `:9001`, login `voidlog` / `voidlog123`) runs via
+`docker compose up -d` and stops with:
 
 ```bash
 docker compose down
 ```
 
-## Testen
+## Testing
 
 ```bash
 pnpm test:e2e
 ```
 
-Beweist den kompletten Daten-/Job-Fluss (Storage-Upload → Queue → Worker →
-Postgres) ohne UI, per Default gegen `MockParser` (keine externe
-Abhängigkeit). Für einen echten dps.report-Testlauf: `LOG_PARSER=dps-report`
-und `TEST_EVTC_PATH=/pfad/zur/datei.evtc` setzen, Worker neu starten, dann
-erneut ausführen.
+Proves the complete data/job flow (storage upload → queue → worker →
+Postgres) without a UI, against `MockParser` by default (no external
+dependency). For a real dps.report test run: set `LOG_PARSER=dps-report`
+and `TEST_EVTC_PATH=/path/to/file.evtc`, restart the worker, then rerun.
 
-## Weitere Scripts
+There is no unit test suite yet — `test-e2e.ts` is the only automated
+check.
+
+## Other scripts
 
 ```bash
-pnpm build          # baut alle Apps
-pnpm lint           # ESLint über alle Packages
-pnpm format         # Prettier über das gesamte Repo
-pnpm typecheck       # tsc --noEmit über alle Packages
+pnpm build          # builds all apps
+pnpm lint            # ESLint across all packages
+pnpm format          # Prettier across the whole repo
+pnpm typecheck        # tsc --noEmit across all packages
 ```
 
-## Stand & nächste Schritte
+## Status & roadmap
 
-- [x] Monorepo-Grundgerüst, lauffähig, ohne Business-Code.
-- [x] Vollständiges Datenmodell + Migration, Storage-Client,
-  Queue-Anbindung, echter `DpsReportParser`, SSE-Fortschritt — nachgewiesen
-  per Testskript/curl, ohne UI.
-- [x] Auth.js mit Discord-Provider (ADR-007),
-  geschützte Routen, alle sieben Kernseiten (Login, Dashboard,
-  Projekt-Detail, Batch-Upload, Batch-Detail, Log-Analyse, Roster) an
-  echte Daten angebunden, Design-Tokens in `globals.css` isoliert für das
-  spätere Reskinning.
-- [ ] Mechaniken Filter für individuellen Ein-/Ausblenden
-- [ ] Reveals analysieren
-- [ ] Upload-Reihenfolge der Logs
-- [ ] Mechaniken-Aggregation über einen Log-Batch verbessern
-- [ ] Diagramme für die Batch Übersicht
+- [x] Monorepo scaffold, runnable, no business logic.
+- [x] Full data model + migration, storage client, queue wiring, real
+  `DpsReportParser`, SSE progress — proven via test script/curl, no UI.
+- [x] Auth.js with Discord provider (ADR-007), protected routes, all
+  seven core pages (login, dashboard, project detail, batch upload,
+  batch detail, log analysis, roster) wired to real data.
+- [x] Dark-themed UI on Radix Themes + Tailwind, applied across all pages.
+- [x] Per-batch phase/mechanic timeline with boss-specific cast markers,
+  curated mechanic translations, and chronological sorting by in-game
+  recording time rather than upload order.
+- [ ] Per-mechanic filter to show/hide individual mechanics
+- [ ] Reveal mechanic analysis
+- [ ] Improve mechanic aggregation across a log batch
+- [ ] Charts for the batch overview page
+- [ ] Curate additional boss encounters beyond Harvest Temple CM
+
+## License
+
+No license has been set for this repository yet — all rights reserved by
+default until one is added.
