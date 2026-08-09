@@ -101,12 +101,17 @@ pnpm typecheck       # tsc --noEmit über alle Packages
 
 ## Stand & nächste Schritte
 
-- **Schritt 1:** Monorepo-Grundgerüst, lauffähig, ohne Business-Code.
-- **Schritt 2:** Vollständiges Datenmodell + Migration, Storage-Client,
+- [x] Monorepo-Grundgerüst, lauffähig, ohne Business-Code.
+- [x] Vollständiges Datenmodell + Migration, Storage-Client,
   Queue-Anbindung, echter `DpsReportParser`, SSE-Fortschritt — nachgewiesen
   per Testskript/curl, ohne UI.
-- **Schritt 3 (dieser Stand):** Auth.js mit Discord-Provider (ADR-007),
+- [x] Auth.js mit Discord-Provider (ADR-007),
   geschützte Routen, alle sieben Kernseiten (Login, Dashboard,
   Projekt-Detail, Batch-Upload, Batch-Detail, Log-Analyse, Roster) an
   echte Daten angebunden, Design-Tokens in `globals.css` isoliert für das
   spätere Reskinning.
+- [ ] Mechaniken Filter für individuellen Ein-/Ausblenden
+- [ ] Reveals analysieren
+- [ ] Upload-Reihenfolge der Logs
+- [ ] Mechaniken-Aggregation über einen Log-Batch verbessern
+- [ ] Diagramme für die Batch Übersicht
