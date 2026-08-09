@@ -10,6 +10,15 @@
  * `targets[].rotation` (EI's per-target cast log, keyed by skill id) has
  * every cast regardless of outcome — that's the source here.
  *
+ * Targets are matched by `EiTarget.id` (a stable per-species id), NOT by
+ * `name` — `name` is localized to the recording client's game-client
+ * language. Confirmed on two real logs: a German-client recording names
+ * the giants "Riese der Leere 1/2/3" and the Time Caster "Zeitzauberer der
+ * Leere"; an English-client recording of the same encounter names them
+ * "Void Giant 1/2/3" and "Void Time Caster" — both share the same `id`s
+ * (24450 for all three giants, 25025 for the Time Caster). Matching by
+ * name alone would silently drop all cast data for non-German clients.
+ *
  * Two layers:
  * - `CURATED_CAST_MARKERS_BY_BOSS`: individually named/relevant attacks,
  *   shown as distinct timeline ticks in the UI (see batch-attempts.tsx).
@@ -18,10 +27,14 @@
  *   name from `skillMap`), so the data already exists for later analysis
  *   even before it's individually curated. Not surfaced in the UI yet
  *   (see `isNoiseMechanic` on the web side).
+ *
+ * Known gap: Soo-Won CM's "Void Obliterator"/"Void Goliath" adds aren't
+ * covered yet — no sample log reaching that deep into the encounter was
+ * available to confirm their target ids.
  */
 export interface CuratedCastMarker {
-  /** Matched against EiTarget.name (exact match — EI target names are stable). */
-  targetName: string;
+  /** Matched against EiTarget.id (stable, language-independent — see header). */
+  targetId: number;
   /** Numeric skill id, matching `skillMap`'s "s<id>" key and `rotation[].id`. */
   skillId: number;
   /** MechanicEvent.mechanicName — reuses the boss's existing ".H" hit-mechanic stem with a ".Cast" suffix, so it reads consistently with the rest of mechanic-names.ts. */
@@ -33,31 +46,31 @@ export const CURATED_CAST_MARKERS_BY_BOSS: Record<string, CuratedCastMarker[]> =
   // Harvest Temple CM (Dragon's End)
   "43488": [
     {
-      targetName: "The PrimordusVoid",
+      targetId: -22, // The PrimordusVoid
       skillId: 65704,
       mechanicName: "Jaws.Cast",
       displayName: "Jaws of Destruction (Cast)",
     },
     {
-      targetName: "The PrimordusVoid",
+      targetId: -22, // The PrimordusVoid
       skillId: 65427,
       mechanicName: "Slam.Cast",
       displayName: "Lava Slam (Cast)",
     },
     {
-      targetName: "The KralkatorrikVoid",
+      targetId: -19, // The KralkatorrikVoid
       skillId: 65017,
       mechanicName: "Beam.Cast",
       displayName: "Branding Beam (Cast)",
     },
     {
-      targetName: "The MordremothVoid",
+      targetId: -20, // The MordremothVoid
       skillId: 64810,
       mechanicName: "ShckWv.Cast",
       displayName: "Mordremoth Shockwave (Cast)",
     },
     {
-      targetName: "The ZhaitanVoid",
+      targetId: -17, // The ZhaitanVoid
       skillId: 64428,
       mechanicName: "Scream.Cast",
       displayName: "Zhaitan Scream (Cast)",
@@ -69,24 +82,25 @@ export interface CastTargetGroup {
   /** Used to build the generic mechanicName: "<groupKey>.Cast.<skillId>". */
   groupKey: string;
   /**
-   * Target names merged into this one group — e.g. all three "Riese der
-   * Leere" adds share a group so it's not tracked which specific giant
-   * cast the attack, only that a giant did.
+   * Target ids merged into this one group — a single id can already cover
+   * multiple simultaneous instances (e.g. all three giants share id
+   * 24450), so this is mainly for the rare case of genuinely distinct
+   * species that should still be tracked as one group.
    */
-  targetNames: string[];
+  targetIds: number[];
 }
 
 export const CAST_TARGET_GROUPS_BY_BOSS: Record<string, CastTargetGroup[]> = {
   "43488": [
-    { groupKey: "Jormag", targetNames: ["The JormagVoid"] },
-    { groupKey: "Primordus", targetNames: ["The PrimordusVoid"] },
-    { groupKey: "Kralkatorrik", targetNames: ["The KralkatorrikVoid"] },
-    { groupKey: "Mordremoth", targetNames: ["The MordremothVoid"] },
-    { groupKey: "Zhaitan", targetNames: ["The ZhaitanVoid"] },
-    { groupKey: "SooWon", targetNames: ["The SooWonVoid"] },
-    { groupKey: "TimeCaster", targetNames: ["Zeitzauberer der Leere"] },
-    { groupKey: "Giant", targetNames: ["Riese der Leere 1", "Riese der Leere 2", "Riese der Leere 3"] },
-    { groupKey: "SaltsprayDragon", targetNames: ["Leere-Salzgischtdrachen"] },
+    { groupKey: "Jormag", targetIds: [-21] },
+    { groupKey: "Primordus", targetIds: [-22] },
+    { groupKey: "Kralkatorrik", targetIds: [-19] },
+    { groupKey: "Mordremoth", targetIds: [-20] },
+    { groupKey: "Zhaitan", targetIds: [-17] },
+    { groupKey: "SooWon", targetIds: [-18] },
+    { groupKey: "TimeCaster", targetIds: [25025] },
+    { groupKey: "Giant", targetIds: [24450] },
+    { groupKey: "SaltsprayDragon", targetIds: [23846] },
   ],
 };
 
