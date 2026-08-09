@@ -1,11 +1,12 @@
 export interface TrendPoint {
   id: string;
+  occurredAt: Date;
   avgGroupDps: number;
   greenFailRate: number | null;
 }
 
 const WIDTH = 760;
-const HEIGHT = 140;
+const HEIGHT = 160;
 const TOP = 10;
 const BOTTOM = 130;
 // Reserved on the left for the y-axis value labels, so the plotted line
@@ -13,12 +14,19 @@ const BOTTOM = 130;
 const AXIS_WIDTH = 46;
 const PLOT_WIDTH = WIDTH - AXIS_WIDTH;
 
+function formatAxisDate(date: Date): string {
+  return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+}
+
+function xAt(index: number, count: number): number {
+  return AXIS_WIDTH + (count === 1 ? PLOT_WIDTH / 2 : (index / (count - 1)) * PLOT_WIDTH);
+}
+
 function buildPoints(values: number[], min: number, max: number): string {
   const span = max - min || 1;
   return values
     .map((v, i) => {
-      const x =
-        AXIS_WIDTH + (values.length === 1 ? PLOT_WIDTH / 2 : (i / (values.length - 1)) * PLOT_WIDTH);
+      const x = xAt(i, values.length);
       const y = BOTTOM - ((v - min) / span) * (BOTTOM - TOP);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
@@ -27,10 +35,12 @@ function buildPoints(values: number[], min: number, max: number): string {
 
 function SingleLineChart({
   values,
+  dates,
   color,
   formatValue,
 }: {
   values: number[];
+  dates: Date[];
   color: string;
   formatValue: (v: number) => string;
 }) {
@@ -60,6 +70,18 @@ function SingleLineChart({
       <text x={AXIS_WIDTH - 6} y={BOTTOM + 3} textAnchor="end" fontSize="10" fill="var(--muted)">
         {formatValue(min)}
       </text>
+      {dates.map((date, i) => (
+        <text
+          key={i}
+          x={xAt(i, dates.length)}
+          y={BOTTOM + 16}
+          textAnchor="middle"
+          fontSize="9"
+          fill="var(--muted)"
+        >
+          {formatAxisDate(date)}
+        </text>
+      ))}
       <polyline points={buildPoints(values, min, max)} fill="none" stroke={color} strokeWidth="2" />
     </svg>
   );
@@ -67,9 +89,11 @@ function SingleLineChart({
 
 export function DpsTrendChart({ points }: { points: TrendPoint[] }) {
   const values = points.map((p) => p.avgGroupDps);
+  const dates = points.map((p) => p.occurredAt);
   return (
     <SingleLineChart
       values={values}
+      dates={dates}
       color="var(--primary)"
       formatValue={(v) => Math.round(v).toLocaleString("de-DE")}
     />
@@ -78,9 +102,11 @@ export function DpsTrendChart({ points }: { points: TrendPoint[] }) {
 
 export function GreenFailTrendChart({ points }: { points: TrendPoint[] }) {
   const values = points.map((p) => p.greenFailRate ?? 0);
+  const dates = points.map((p) => p.occurredAt);
   return (
     <SingleLineChart
       values={values}
+      dates={dates}
       color="var(--danger)"
       formatValue={(v) => `${Math.round(v)}%`}
     />
