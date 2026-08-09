@@ -80,6 +80,12 @@ const MECHANIC_NAMES: Record<string, string> = {
   "MagicDisc.H": "Magieentladung — getroffen",
   "S.Green": "Grünkreis — erfolgreich",
   "F.Green": "Grünkreis — verfehlt",
+  // Synthetic marker (not a raw EI mechanic) — when the green stack-circle
+  // hazard actors first become active, from EiTarget.firstAware (see
+  // SPAWN_MARKERS_BY_BOSS in the worker's cast-markers.ts). Only exists for
+  // Jormag/Primordus/Zhaitan — Kralkatorrik/Mordremoth/Soo-Won don't have
+  // this mechanic.
+  "Green.Spawn": "Grünkreise — erscheinen",
 
   // Purification 1
   "Light.H": "Blitz Jormags — getroffen",
@@ -187,6 +193,7 @@ const VISIBLE_CAST_MARKERS = new Set([
   "Beam.Cast",
   "ShckWv.Cast",
   "Scream.Cast",
+  "Green.Spawn",
 ]);
 
 export const harvestTemple: BossCuration = {

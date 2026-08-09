@@ -70,6 +70,15 @@ export interface EiTarget {
   id: number;
   /** Absent for targets EI didn't track a cast log for (e.g. static hazards). */
   rotation?: EiRotationEntry[];
+  /**
+   * Timestamp (ms) this target first became active — used as a "spawn"
+   * marker for synthetic hazard actors that have no cast log of their own
+   * (e.g. Harvest Temple's "Green" stack-circle targets, confirmed via a
+   * real log: "Jormag Green E" has `firstAware: 50651`, matching the
+   * S.Green/F.Green mechanic firing a few seconds later at the same
+   * location). See SPAWN_MARKERS_BY_BOSS in the worker's cast-markers.ts.
+   */
+  firstAware?: number;
 }
 
 export interface EiSkillMapEntry {

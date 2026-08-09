@@ -4,6 +4,7 @@ import {
   CAST_TARGET_GROUPS_BY_BOSS,
   CURATED_CAST_MARKERS_BY_BOSS,
   EXCLUDED_ROTATION_SKILL_IDS,
+  SPAWN_MARKERS_BY_BOSS,
 } from "../boss-configs/cast-markers";
 import { DEATH_MECHANIC_NAME, parseEiTimestamp } from "./ei-json-shape";
 import type { ExtractedEncounter } from "./extract-encounter";
@@ -216,6 +217,26 @@ export async function persistExtractedEncounter(
               }
             }
           }
+        }
+      }
+
+      // Hazard-actor spawns (see cast-markers.ts): matched by name, not id,
+      // since these fake targets have no cast log — `firstAware` is the
+      // only "when did this appear" timestamp EI gives us for them.
+      for (const marker of SPAWN_MARKERS_BY_BOSS[bossId] ?? []) {
+        for (const target of targets.filter((t) => marker.namePattern.test(t.name))) {
+          if (typeof target.firstAware !== "number") continue;
+          const phaseIndex = resolvePhaseIndex(target.firstAware);
+          await tx.mechanicEvent.create({
+            data: {
+              phaseResultId: phaseIdsInOrder[phaseIndex]!,
+              playerResultId: null,
+              mechanicName: marker.mechanicName,
+              category: MechanicCategory.BOSS_SPECIFIC,
+              displayName: marker.displayName,
+              timeMs: Math.round(target.firstAware),
+            },
+          });
         }
       }
 

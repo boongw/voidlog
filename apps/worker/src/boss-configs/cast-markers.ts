@@ -106,3 +106,37 @@ export const CAST_TARGET_GROUPS_BY_BOSS: Record<string, CastTargetGroup[]> = {
 
 /** EI's synthetic "target became active" marker, not a real attack. */
 export const EXCLUDED_ROTATION_SKILL_IDS = new Set([-2]);
+
+/**
+ * Hazard-actor "spawn" markers: some mechanics (e.g. Harvest Temple's
+ * "Greens" stack circles) aren't a boss ability cast at all — EI represents
+ * each one as its own fake target instead, with no cast log of its own.
+ * `EiTarget.firstAware` (when that target first became active) is the only
+ * available "when did this appear" timestamp, so these are matched by
+ * `EiTarget.name` rather than `id` like the cast markers above.
+ *
+ * This is safe here specifically because these names are synthesized by
+ * GW2EIEvtcParser's own boss-module source, not pulled from the recording
+ * client's localized game strings — confirmed on a real German-client
+ * Harvest Temple log where nearby real NPCs *were* localized ("Riese der
+ * Leere") but the green-circle actors stayed English ("Jormag Green E",
+ * "Primordus Green NW", "Zhaitan Green NW/NE/S"). Only Jormag, Primordus,
+ * and Zhaitan have this mechanic — confirmed absent for Kralkatorrik/
+ * Mordremoth/Soo-Won on a log that reached past all of them.
+ */
+export interface SpawnMarker {
+  namePattern: RegExp;
+  mechanicName: string;
+  displayName: string;
+}
+
+export const SPAWN_MARKERS_BY_BOSS: Record<string, SpawnMarker[]> = {
+  // Harvest Temple CM (Dragon's End)
+  "43488": [
+    {
+      namePattern: /Green/,
+      mechanicName: "Green.Spawn",
+      displayName: "Green Circles (Spawn)",
+    },
+  ],
+};
