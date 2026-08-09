@@ -136,9 +136,11 @@ pnpm typecheck        # tsc --noEmit across all packages
   curated mechanic translations, and chronological sorting by in-game
   recording time rather than upload order.
 - [ ] Per-mechanic filter to show/hide individual mechanics
+- [ ] add HTCm greens mechanic in boss attack row
 - [ ] Reveal mechanic analysis
 - [ ] Improve mechanic aggregation across a log batch
 - [ ] Charts for the batch overview page
+  - [ ] add runs which failed by greens as diagram
 - [ ] Curate additional boss encounters beyond Harvest Temple CM
 
 ## License
