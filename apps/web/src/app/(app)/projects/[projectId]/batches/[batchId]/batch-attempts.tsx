@@ -157,6 +157,14 @@ interface PhaseFilterGroup {
   fails: [string, string][];
 }
 
+// Mechanics that can happen in any phase (not tied to boss mechanics) — kept
+// out of the per-phase groups so they don't get listed once per phase, and
+// shown once under "Weitere" instead.
+const GLOBAL_MECHANIC_LABELS: Record<string, string> = {
+  Downed: "Downstate",
+  DC: "Disconnect",
+};
+
 // One toggle chip for a single mechanic — clicking it hides that mechanic's
 // markers from every attempt row below (keyed by the raw mechanicName, so it
 // works for any boss, not just the hardcoded HTCM attack glyphs).
@@ -193,14 +201,28 @@ function MechanicToggle({
 // visitor needs. Grouping by phase (instead of one flat list) mirrors the
 // aggregate phase cards above it, so the same phase names/colors orient the
 // user here too.
+function failMechanicIcon(mechanicName: string) {
+  if (mechanicName === "Downed") {
+    // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
+    return <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />;
+  }
+  return <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />;
+}
+
 function MechanicFilterAccordion({
   bossId,
   phaseGroups,
+  multiPhaseAttacks,
+  multiPhaseFails,
+  otherEntries,
   hidden,
   onToggle,
 }: {
   bossId: string;
   phaseGroups: PhaseFilterGroup[];
+  multiPhaseAttacks: [string, AttackType][];
+  multiPhaseFails: [string, string][];
+  otherEntries: [string, string][];
   hidden: Set<string>;
   onToggle: (mechanicName: string) => void;
 }) {
@@ -235,14 +257,7 @@ function MechanicFilterAccordion({
                   key={mechanicName}
                   mechanicName={mechanicName}
                   label={label}
-                  icon={
-                    mechanicName === "Downed" ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
-                      <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />
-                    ) : (
-                      <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />
-                    )
-                  }
+                  icon={failMechanicIcon(mechanicName)}
                   isHidden={hidden.has(mechanicName)}
                   onToggle={onToggle}
                 />
@@ -253,14 +268,55 @@ function MechanicFilterAccordion({
             </div>
           </div>
         ))}
-        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-          <span className="text-muted text-[10px] font-semibold uppercase tracking-wide">
+        {multiPhaseAttacks.length > 0 || multiPhaseFails.length > 0 ? (
+          <div>
+            <div className="text-muted mb-1.5 text-[11px] font-semibold uppercase tracking-wide">
+              Mehrere Phasen
+            </div>
+            <div className="flex flex-wrap gap-x-3.5 gap-y-1.5">
+              {multiPhaseAttacks.map(([mechanicName, type]) => (
+                <MechanicToggle
+                  key={mechanicName}
+                  mechanicName={mechanicName}
+                  label={ATTACK_LABEL[type]}
+                  icon={<AttackGlyph type={type} />}
+                  isHidden={hidden.has(mechanicName)}
+                  onToggle={onToggle}
+                />
+              ))}
+              {multiPhaseFails.map(([mechanicName, label]) => (
+                <MechanicToggle
+                  key={mechanicName}
+                  mechanicName={mechanicName}
+                  label={label}
+                  icon={failMechanicIcon(mechanicName)}
+                  isHidden={hidden.has(mechanicName)}
+                  onToggle={onToggle}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div>
+          <div className="text-muted mb-1.5 text-[11px] font-semibold uppercase tracking-wide">
             Weitere
-          </span>
-          <span className="text-muted-strong flex items-center gap-1.5 text-xs">
-            <Cross2Icon className="text-danger h-3.5 w-3.5" />
-            Tod
-          </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+            <span className="text-muted-strong flex items-center gap-1.5 text-xs">
+              <Cross2Icon className="text-danger h-3.5 w-3.5" />
+              Tod
+            </span>
+            {otherEntries.map(([mechanicName, label]) => (
+              <MechanicToggle
+                key={mechanicName}
+                mechanicName={mechanicName}
+                label={label}
+                icon={failMechanicIcon(mechanicName)}
+                isHidden={hidden.has(mechanicName)}
+                onToggle={onToggle}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </details>
@@ -300,11 +356,31 @@ export function BatchAttempts({
   // phase-grouped filter accordion — boss-agnostic (attack glyphs only show
   // up if attackType() recognizes the mechanicName, which today means HTCM;
   // any other boss just gets fail-mechanic groups).
-  const phaseFilterGroups = useMemo(() => {
+  const otherMechanicEntries = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of attempts) {
+      for (const phase of a.phases) {
+        for (const m of phase.mechanics) {
+          const label = GLOBAL_MECHANIC_LABELS[m.mechanicName];
+          if (label && !map.has(m.mechanicName)) map.set(m.mechanicName, label);
+        }
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [attempts]);
+
+  // Mechanics that show up in more than one main phase (e.g. a fail that can
+  // happen throughout the fight, not tied to one phase) go into their own
+  // "Mehrere Phasen" group instead of being listed once per phase.
+  const { phaseFilterGroups, multiPhaseAttacks, multiPhaseFails } = useMemo(() => {
     const groups = new Map<
       string,
       { order: number; attacks: Map<string, AttackType>; fails: Map<string, string> }
     >();
+    const phasesByMechanic = new Map<string, Set<string>>();
+    const attackTypeByMechanic = new Map<string, AttackType>();
+    const failLabelByMechanic = new Map<string, string>();
+
     for (const a of attempts) {
       for (const phase of a.phases) {
         const group = groups.get(phase.name) ?? {
@@ -314,24 +390,48 @@ export function BatchAttempts({
         };
         group.order = Math.min(group.order, phase.order);
         for (const m of phase.mechanics) {
+          if (m.mechanicName in GLOBAL_MECHANIC_LABELS) continue;
           const type = attackType(m.mechanicName);
           if (type) {
             if (!group.attacks.has(m.mechanicName)) group.attacks.set(m.mechanicName, type);
-          } else if (!group.fails.has(m.mechanicName)) {
-            group.fails.set(m.mechanicName, m.mechanicName === "Downed" ? "Downstate" : m.name);
+            attackTypeByMechanic.set(m.mechanicName, type);
+          } else {
+            if (!group.fails.has(m.mechanicName)) group.fails.set(m.mechanicName, m.name);
+            failLabelByMechanic.set(m.mechanicName, m.name);
           }
+          const phases = phasesByMechanic.get(m.mechanicName) ?? new Set<string>();
+          phases.add(phase.name);
+          phasesByMechanic.set(m.mechanicName, phases);
         }
         groups.set(phase.name, group);
       }
     }
-    return [...groups.entries()]
+
+    const multiPhaseNames = new Set(
+      [...phasesByMechanic.entries()].filter(([, phases]) => phases.size > 1).map(([name]) => name),
+    );
+
+    const phaseFilterGroups = [...groups.entries()]
       .sort((a, b) => a[1].order - b[1].order)
       .map(([name, g]) => ({
         name,
         order: g.order,
-        attacks: [...g.attacks.entries()],
-        fails: [...g.fails.entries()].sort((a, b) => a[1].localeCompare(b[1])),
+        attacks: [...g.attacks.entries()].filter(([mn]) => !multiPhaseNames.has(mn)),
+        fails: [...g.fails.entries()]
+          .filter(([mn]) => !multiPhaseNames.has(mn))
+          .sort((a, b) => a[1].localeCompare(b[1])),
       }));
+
+    const multiPhaseAttacks = [...multiPhaseNames]
+      .filter((mn) => attackTypeByMechanic.has(mn))
+      .map((mn) => [mn, attackTypeByMechanic.get(mn)!] as [string, AttackType]);
+
+    const multiPhaseFails = [...multiPhaseNames]
+      .filter((mn) => failLabelByMechanic.has(mn))
+      .map((mn) => [mn, failLabelByMechanic.get(mn)!] as [string, string])
+      .sort((a, b) => a[1].localeCompare(b[1]));
+
+    return { phaseFilterGroups, multiPhaseAttacks, multiPhaseFails };
   }, [attempts]);
 
   return (
@@ -440,6 +540,9 @@ export function BatchAttempts({
         <MechanicFilterAccordion
           bossId={bossId}
           phaseGroups={phaseFilterGroups}
+          multiPhaseAttacks={multiPhaseAttacks}
+          multiPhaseFails={multiPhaseFails}
+          otherEntries={otherMechanicEntries}
           hidden={hiddenMechanics}
           onToggle={toggleMechanic}
         />
