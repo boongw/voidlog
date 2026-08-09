@@ -168,10 +168,10 @@ export async function persistExtractedEncounter(
       // every player avoided the attack — no playerResultId, since a cast
       // isn't attributable to any one player.
       const curatedMarkers = CURATED_CAST_MARKERS_BY_BOSS[bossId] ?? [];
-      const curatedKeys = new Set(curatedMarkers.map((m) => `${m.targetName}::${m.skillId}`));
+      const curatedKeys = new Set(curatedMarkers.map((m) => `${m.targetId}::${m.skillId}`));
 
       for (const marker of curatedMarkers) {
-        const target = targets.find((t) => t.name === marker.targetName);
+        const target = targets.find((t) => t.id === marker.targetId);
         const rotationEntry = target?.rotation?.find((r) => r.id === marker.skillId);
         for (const cast of rotationEntry?.skills ?? []) {
           const phaseIndex = resolvePhaseIndex(cast.castTime);
@@ -193,11 +193,11 @@ export async function persistExtractedEncounter(
       // later analysis. Giants: all instances in a group share one
       // mechanicName — which specific giant cast it isn't tracked.
       for (const group of CAST_TARGET_GROUPS_BY_BOSS[bossId] ?? []) {
-        for (const targetName of group.targetNames) {
-          for (const target of targets.filter((t) => t.name === targetName)) {
+        for (const targetId of group.targetIds) {
+          for (const target of targets.filter((t) => t.id === targetId)) {
             for (const rot of target.rotation ?? []) {
               if (EXCLUDED_ROTATION_SKILL_IDS.has(rot.id)) continue;
-              if (curatedKeys.has(`${targetName}::${rot.id}`)) continue;
+              if (curatedKeys.has(`${targetId}::${rot.id}`)) continue;
 
               const skillName = root.skillMap[`s${rot.id}`]?.name ?? `Skill ${rot.id}`;
               const mechanicName = `${group.groupKey}.Cast.${rot.id}`;

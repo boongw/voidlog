@@ -36,7 +36,7 @@ const PLAYER_KEEP_WHOLE = new Set(["account", "name", "profession", "group", "dp
 // (the bulk of the JSON's ~1MB `targets` payload) — keep only the cast log
 // ("rotation") used to detect boss-ability casts independent of whether a
 // player got hit (unlike `mechanics[]`, which only records hits).
-const TARGET_KEEP_WHOLE = new Set(["name", "rotation"]);
+const TARGET_KEEP_WHOLE = new Set(["name", "id", "rotation"]);
 
 type State =
   | "expect-root-start"

@@ -58,6 +58,16 @@ export interface EiRotationEntry {
 
 export interface EiTarget {
   name: string;
+  /**
+   * Stable per-species id (e.g. -22 for Primordus, 25025 for the Time
+   * Caster) — negative for "legendary"/scripted encounter actors, positive
+   * for regular NPC species ids. Unlike `name`, this does NOT change with
+   * the recording client's game-client language (confirmed: a German-client
+   * log names the giants "Riese der Leere 1/2/3", an English-client log
+   * "Void Giant 1/2/3" — both share id 24450). Match targets on this, not
+   * on `name`.
+   */
+  id: number;
   /** Absent for targets EI didn't track a cast log for (e.g. static hazards). */
   rotation?: EiRotationEntry[];
 }
