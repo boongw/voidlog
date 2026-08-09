@@ -7,19 +7,6 @@ import { useState } from "react";
 import { PhaseBadge, phaseColor } from "@/components/phase-badge";
 import { isVisibleCastMarker } from "@/lib/mechanics";
 
-// Plain white orientation tick — the default style for a curated cast
-// marker (see cast-markers.ts on the worker) that doesn't need its own
-// distinct look.
-function PlainTick({ title, leftPct }: { title: string; leftPct: number }) {
-  return (
-    <span
-      title={title}
-      className="bg-foreground absolute top-0 h-2 w-px"
-      style={{ left: `${leftPct}%` }}
-    />
-  );
-}
-
 export interface AttemptRow {
   logFileId: string;
   n: number;
@@ -49,6 +36,150 @@ export interface BatchPhaseStat {
 function formatDuration(ms: number): string {
   const totalSeconds = Math.round(ms / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+type AttackType = "jaws" | "slam" | "beam" | "shockwave" | "scream";
+
+const ATTACK_COLOR: Record<AttackType, string> = {
+  jaws: phaseColor(0, "Primordus"),
+  slam: phaseColor(0, "Primordus"),
+  beam: phaseColor(0, "Kralkatorrik"),
+  shockwave: phaseColor(0, "Mordremoth"),
+  scream: phaseColor(0, "Zhaitan"),
+};
+
+// One small glyph per boss attack, drawn in the dragon's own color — sits
+// in its own lane above the phase bar so it reads as "the boss did this",
+// distinct in both position and color from the fail/death lane below.
+function AttackGlyph({ type, flipped }: { type: AttackType; flipped?: boolean }) {
+  const color = ATTACK_COLOR[type];
+  if (type === "jaws") {
+    return (
+      <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
+        <path
+          d="M1 3 L6 6 L1 9"
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M11 3 L6 6 L11 9"
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (type === "slam") {
+    return (
+      <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
+        <rect x="2.5" y="2.5" width="7" height="7" fill={color} transform="rotate(45 6 6)" />
+      </svg>
+    );
+  }
+  if (type === "beam") {
+    return (
+      <svg
+        viewBox="0 0 12 12"
+        width="13"
+        height="13"
+        className="opacity-70"
+        style={{ transform: flipped ? "scaleX(-1)" : undefined }}
+      >
+        <path
+          d="M3 2 L8 6 L3 10"
+          fill="none"
+          stroke={color}
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (type === "shockwave") {
+    return (
+      <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
+        <circle cx="6" cy="6" r="2" fill={color} />
+        <circle cx="6" cy="6" r="4.6" fill="none" stroke={color} strokeWidth="1.3" opacity="0.55" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
+      <path
+        d="M1 6 Q3 2 5 6 T9 6 T13 6"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+const ATTACK_LABEL: Record<AttackType, string> = {
+  jaws: "Jaws of Destruction",
+  slam: "Lava Slam",
+  beam: "Branding Beam",
+  shockwave: "Mordremoth Shockwave",
+  scream: "Zhaitans Schrei",
+};
+
+// Maps a synthetic "*.Cast" mechanicName to its attack glyph type — the
+// single place that connects worker-side cast-markers.ts to the icon above.
+function attackType(mechanicName: string): AttackType | null {
+  if (mechanicName === "Jaws.Cast") return "jaws";
+  if (mechanicName === "Slam.Cast") return "slam";
+  if (mechanicName === "Beam.Cast") return "beam";
+  if (mechanicName === "ShckWv.Cast") return "shockwave";
+  if (mechanicName === "Scream.Cast") return "scream";
+  return null;
+}
+
+// Explains the attack glyphs and fail/death markers once for the whole
+// "Versuchsverlauf" block — not repeated per row, since it's the same
+// vocabulary for every attempt.
+function TimelineLegend() {
+  const attackEntries: AttackType[] = ["jaws", "slam", "beam", "shockwave", "scream"];
+  return (
+    <div className="border-line-soft mb-3.5 flex flex-wrap gap-x-5 gap-y-2 border-b pb-3.5">
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+        <span className="text-muted text-[10px] font-semibold uppercase tracking-wide">
+          Boss-Angriffe
+        </span>
+        {attackEntries.map((type) => (
+          <span key={type} className="text-muted-strong flex items-center gap-1.5 text-xs">
+            <AttackGlyph type={type} />
+            {ATTACK_LABEL[type]}
+          </span>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+        <span className="text-muted text-[10px] font-semibold uppercase tracking-wide">
+          Gefailte Mechaniken
+        </span>
+        <span className="text-muted-strong flex items-center gap-1.5 text-xs">
+          <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />
+          Verfehlte Mechanik
+        </span>
+        <span className="text-muted-strong flex items-center gap-1.5 text-xs">
+          <Cross2Icon className="text-danger h-3.5 w-3.5" />
+          Tod
+        </span>
+        <span className="text-muted-strong flex items-center gap-1.5 text-xs">
+          {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here */}
+          <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />
+          Downstate
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function BatchAttempts({
@@ -164,9 +295,11 @@ export function BatchAttempts({
         </div>
 
         <div className="text-muted-strong mb-2.5 text-sm font-semibold">Versuchsverlauf</div>
+        <TimelineLegend />
         <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
           {attempts.map((a) => {
             const isOpen = expanded === a.n;
+            const beamCasts = a.mechanics.filter((m) => m.mechanicName === "Beam.Cast");
             return (
               <div key={a.logFileId}>
                 <button
@@ -189,9 +322,31 @@ export function BatchAttempts({
                     {a.success ? "Kill" : "Wipe"}
                   </span>
                   <span
-                    className="flex flex-col gap-1 justify-self-start"
+                    className="flex flex-col gap-0.5 justify-self-start"
                     style={{ width: `${Math.max((a.durationMs / maxDurationMs) * 100, 4)}%` }}
                   >
+                    {/* Lane 1: boss attacks — same icon size as the fail lane below,
+                        positioned above the bar so the category reads from position
+                        alone, not just from the glyph. */}
+                    <span className="relative h-4 w-full">
+                      {a.mechanics.map((m, i) => {
+                        const type = attackType(m.mechanicName);
+                        if (!type) return null;
+                        const flipped =
+                          type === "beam" ? beamCasts.indexOf(m) % 2 === 1 : undefined;
+                        return (
+                          <span
+                            key={`attack-${i}`}
+                            title={m.name}
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                          >
+                            <AttackGlyph type={type} flipped={flipped} />
+                          </span>
+                        );
+                      })}
+                    </span>
+                    {/* Lane 2: phase-color bar */}
                     <span className="bg-line-soft relative h-2 w-full rounded-sm">
                       {a.segments.map((seg) => (
                         <span
@@ -205,76 +360,17 @@ export function BatchAttempts({
                           }}
                         />
                       ))}
-                      {/* Orientation ticks for the boss's key mechanics — visible on
-                          the bar itself, not just as generic fail markers in the row
-                          below. Driven by synthetic "*.Cast" markers (every cast, from
-                          the boss's own cast log), not the ".H" hit-only mechanics. */}
-                      {a.mechanics
-                        .filter((m) => m.mechanicName === "Jaws.Cast")
-                        .map((m, i) => (
-                          <PlainTick
-                            key={`jaws-${i}`}
-                            title={m.name}
-                            leftPct={(m.timeMs / a.durationMs) * 100}
-                          />
-                        ))}
-                      {a.mechanics
-                        .filter((m) => m.mechanicName === "ShckWv.Cast")
-                        .map((m, i) => (
-                          <PlainTick
-                            key={`shckwv-${i}`}
-                            title={m.name}
-                            leftPct={(m.timeMs / a.durationMs) * 100}
-                          />
-                        ))}
-                      {a.mechanics
-                        .filter((m) => m.mechanicName === "Scream.Cast")
-                        .map((m, i) => (
-                          <PlainTick
-                            key={`scream-${i}`}
-                            title={m.name}
-                            leftPct={(m.timeMs / a.durationMs) * 100}
-                          />
-                        ))}
-                      {/* Lava Slam gets a distinct marker from Jaws (both happen during
-                          the Primordus phase, on the same bar) — a colored diamond
-                          instead of a plain line. */}
-                      {a.mechanics
-                        .filter((m) => m.mechanicName === "Slam.Cast")
-                        .map((m, i) => (
-                          <span
-                            key={`slam-${i}`}
-                            title={m.name}
-                            className="text-danger absolute top-0 -translate-x-1/2 text-[10px] leading-[8px]"
-                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
-                          >
-                            ◆
-                          </span>
-                        ))}
-                      {/* Branding Beam sweeps back and forth — alternate ">" / "<" per
-                          successive cast to hint at the direction. */}
-                      {a.mechanics
-                        .filter((m) => m.mechanicName === "Beam.Cast")
-                        .map((m, i) => (
-                          <span
-                            key={`beam-${i}`}
-                            title={m.name}
-                            className="text-foreground absolute top-0 -translate-x-1/2 text-[10px] font-bold leading-[8px]"
-                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
-                          >
-                            {i % 2 === 0 ? ">" : "<"}
-                          </span>
-                        ))}
                     </span>
-                    <span className="relative h-3 w-full">
+                    {/* Lane 3: fails/deaths — icon size matched to the attack lane. */}
+                    <span className="relative h-4 w-full">
                       {a.deaths.map((d, i) => (
                         <span
                           key={`death-${i}`}
                           title={`Tod${d.player ? ` — ${d.player}` : ""}`}
-                          className="absolute top-0 -translate-x-1/2"
+                          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                           style={{ left: `${(d.timeMs / a.durationMs) * 100}%` }}
                         >
-                          <Cross2Icon className="text-danger h-3 w-3" />
+                          <Cross2Icon className="text-danger h-3.5 w-3.5" />
                         </span>
                       ))}
                       {a.mechanics
@@ -283,14 +379,14 @@ export function BatchAttempts({
                           <span
                             key={`mech-${i}`}
                             title={m.name}
-                            className="absolute top-0 -translate-x-1/2"
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                             style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
                           >
                             {m.mechanicName === "Downed" ? (
                               // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
-                              <img src="/icons/downed.png" alt="" className="h-3.5 w-2.5" />
+                              <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />
                             ) : (
-                              <ExclamationTriangleIcon className="text-warning h-3 w-3" />
+                              <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />
                             )}
                           </span>
                         ))}
