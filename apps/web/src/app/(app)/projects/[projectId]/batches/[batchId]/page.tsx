@@ -60,11 +60,17 @@ export default async function BatchDetailPage(
   const failedLogFiles = batch.logFiles.filter((f) => f.status === LogFileStatus.FAILED);
 
   const attempts = encounters.length;
-  const kills = encounters.filter((e) => e.encounter.success).length;
-  const successRate = attempts > 0 ? Math.round((kills / attempts) * 100) : null;
   const revealReached = encounters.filter((e) =>
     e.encounter.phaseResults.some((p) =>
       p.mechanicEvents.some((m) => m.category === MechanicCategory.REVEAL),
+    ),
+  ).length;
+  // "F.Green" is HTCM's raw EI mechanic code for a failed Green stack (see
+  // harvest-temple.ts) — hardcoded like the timeline's attack glyphs
+  // elsewhere in this batch view, pending a boss-pluggable stat-card system.
+  const greenFailedCount = encounters.filter((e) =>
+    e.encounter.phaseResults.some((p) =>
+      p.mechanicEvents.some((m) => m.mechanicName === "F.Green"),
     ),
   ).length;
 
@@ -183,25 +189,42 @@ export default async function BatchDetailPage(
             mechanicName: m.mechanicName,
           })),
       ),
-      phases: mainPhases.map((p) => ({
-        name: p.name,
-        order: p.order,
-        reached: p.reached,
-        success: p.success,
-        // Keeps cast markers (boss attacks) in here too, unlike the death/
-        // fail-only `mechanics` field above — the client needs them to build
-        // the per-phase attack filter groups. isVisibleCastMarker is applied
-        // client-side only when rendering the plain-text mechanic list.
-        mechanics: p.mechanicEvents
-          .filter(
-            (m) => m.mechanicName !== "Dead" && !isNoiseMechanic(encounter.bossId, m.mechanicName),
-          )
-          .map((m) => ({
-            mechanicName: m.mechanicName,
-            name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
-            player: m.playerResult?.characterName ?? null,
-          })),
-      })),
+      phases: mainPhases.map((p) => {
+        // Don't rely on p.mechanicEvents here: persistence assigns each
+        // event to the *narrowest* containing PhaseResult (resolvePhaseIndex
+        // in persist-encounter.ts), which is often an auto-generated
+        // breakbar/intermission sub-phase nested inside this main phase
+        // (e.g. "Grav.Cru.H" events land under "Void Time Caster", not
+        // "Purification 2") — those would silently vanish from the filter
+        // groups below even though they still show up in the `mechanics`
+        // field above (built from *all* phaseResults). Re-bucket by time
+        // range instead, so every event that happened during this phase's
+        // window is included regardless of which sub-phase record it's
+        // attached to.
+        const eventsInRange = encounter.phaseResults
+          .flatMap((pr) => pr.mechanicEvents)
+          .filter((m) => m.timeMs >= p.startMs && m.timeMs < p.endMs);
+        return {
+          name: p.name,
+          order: p.order,
+          reached: p.reached,
+          success: p.success,
+          // Keeps cast markers (boss attacks) in here too, unlike the death/
+          // fail-only `mechanics` field above — the client needs them to
+          // build the per-phase attack filter groups. isVisibleCastMarker is
+          // applied client-side only when rendering the plain-text mechanic
+          // list.
+          mechanics: eventsInRange
+            .filter(
+              (m) => m.mechanicName !== "Dead" && !isNoiseMechanic(encounter.bossId, m.mechanicName),
+            )
+            .map((m) => ({
+              mechanicName: m.mechanicName,
+              name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
+              player: m.playerResult?.characterName ?? null,
+            })),
+        };
+      }),
     };
   });
 
@@ -232,10 +255,13 @@ export default async function BatchDetailPage(
         </Card>
         <Card size="2" className="border-line bg-surface border">
           <div className="text-muted mb-1.5 text-[11px] font-medium uppercase tracking-wide">
-            Erfolgsquote
+            Green verfehlt
           </div>
-          <div className="font-heading text-warning text-xl font-bold">
-            {successRate === null ? "—" : `${successRate}%`}
+          <div className="font-heading text-danger text-xl font-bold">
+            {greenFailedCount}{" "}
+            <span className="text-muted text-sm font-medium">
+              ({attempts > 0 ? Math.round((greenFailedCount / attempts) * 100) : 0}%)
+            </span>
           </div>
         </Card>
         <Card size="2" className="border-line bg-surface border">
