@@ -46,7 +46,7 @@ export default async function DashboardPage() {
         ? Math.round((encounters.filter((e) => e.success).length / encounters.length) * 100)
         : null;
 
-    let furthestPhase: { name: string; order: number } | null = null;
+    let furthestPhase: { name: string; order: number; bossId: string } | null = null;
     for (const encounter of encounters) {
       for (const phase of encounter.phaseResults) {
         if (
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
           isMainPhase(encounter.bossId, phase.name) &&
           (!furthestPhase || phase.order > furthestPhase.order)
         ) {
-          furthestPhase = phase;
+          furthestPhase = { ...phase, bossId: encounter.bossId };
         }
       }
     }
@@ -120,7 +120,11 @@ export default async function DashboardPage() {
                       Weiteste Phase
                     </div>
                     {p.furthestPhase ? (
-                      <PhaseBadge name={p.furthestPhase.name} order={p.furthestPhase.order} />
+                      <PhaseBadge
+                        bossId={p.furthestPhase.bossId}
+                        name={p.furthestPhase.name}
+                        order={p.furthestPhase.order}
+                      />
                     ) : (
                       <span className="text-muted text-sm">—</span>
                     )}

@@ -9,6 +9,7 @@ import { isVisibleCastMarker } from "@/lib/mechanics";
 
 export interface AttemptRow {
   logFileId: string;
+  bossId: string;
   n: number;
   success: boolean;
   furthestPhase: { name: string; order: number } | null;
@@ -40,12 +41,19 @@ function formatDuration(ms: number): string {
 
 type AttackType = "jaws" | "slam" | "beam" | "shockwave" | "scream";
 
+// The glyphs below (attackType/ATTACK_LABEL too) are inherently specific
+// to Harvest Temple CM's curated cast markers (see cast-markers.ts on the
+// worker) — pending a boss-pluggable icon system, this component only
+// draws them for that one boss, so the color lookup is hardcoded to it
+// rather than threaded through as a prop.
+const HARVEST_TEMPLE_BOSS_ID = "43488";
+
 const ATTACK_COLOR: Record<AttackType, string> = {
-  jaws: phaseColor(0, "Primordus"),
-  slam: phaseColor(0, "Primordus"),
-  beam: phaseColor(0, "Kralkatorrik"),
-  shockwave: phaseColor(0, "Mordremoth"),
-  scream: phaseColor(0, "Zhaitan"),
+  jaws: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
+  slam: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
+  beam: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Kralkatorrik"),
+  shockwave: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Mordremoth"),
+  scream: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Zhaitan"),
 };
 
 // One small glyph per boss attack, drawn in the dragon's own color — sits
@@ -185,11 +193,13 @@ function TimelineLegend() {
 export function BatchAttempts({
   projectId,
   batchId,
+  bossId,
   attempts,
   batchPhaseStats,
 }: {
   projectId: string;
   batchId: string;
+  bossId: string;
   attempts: AttemptRow[];
   batchPhaseStats: BatchPhaseStat[];
 }) {
@@ -199,8 +209,8 @@ export function BatchAttempts({
   return (
     <Tabs.Root defaultValue="table">
       <Tabs.List>
-        <Tabs.Trigger value="table">Tabelle</Tabs.Trigger>
-        <Tabs.Trigger value="timeline">Zeitstrahl</Tabs.Trigger>
+        <Tabs.Trigger value="table">Übersicht</Tabs.Trigger>
+        <Tabs.Trigger value="timeline">Details</Tabs.Trigger>
       </Tabs.List>
 
       <Tabs.Content value="table" className="mt-4">
@@ -225,7 +235,11 @@ export function BatchAttempts({
                 </Table.Cell>
                 <Table.Cell>
                   {a.furthestPhase ? (
-                    <PhaseBadge name={a.furthestPhase.name} order={a.furthestPhase.order} />
+                    <PhaseBadge
+                      bossId={a.bossId}
+                      name={a.furthestPhase.name}
+                      order={a.furthestPhase.order}
+                    />
                   ) : (
                     "—"
                   )}
@@ -260,7 +274,7 @@ export function BatchAttempts({
         </p>
         <div className="mb-7 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {batchPhaseStats.map((bp) => {
-            const color = phaseColor(bp.order, bp.name);
+            const color = phaseColor(bossId, bp.order, bp.name);
             const reachedPct = bp.total > 0 ? Math.round((bp.reached / bp.total) * 100) : 0;
             return (
               <Card
@@ -356,7 +370,7 @@ export function BatchAttempts({
                           style={{
                             left: `${seg.leftPct}%`,
                             width: `${seg.widthPct}%`,
-                            background: phaseColor(seg.order, seg.name),
+                            background: phaseColor(a.bossId, seg.order, seg.name),
                           }}
                         />
                       ))}
@@ -374,7 +388,7 @@ export function BatchAttempts({
                         </span>
                       ))}
                       {a.mechanics
-                        .filter((m) => !isVisibleCastMarker(m.mechanicName))
+                        .filter((m) => !isVisibleCastMarker(a.bossId, m.mechanicName))
                         .map((m, i) => (
                           <span
                             key={`mech-${i}`}
@@ -403,7 +417,7 @@ export function BatchAttempts({
                         <div
                           key={phase.order}
                           className="bg-surface-2 border-line border-l-3 rounded-sm border-y border-r px-2.5 py-2"
-                          style={{ borderLeftColor: phaseColor(phase.order, phase.name) }}
+                          style={{ borderLeftColor: phaseColor(a.bossId, phase.order, phase.name) }}
                         >
                           <div className="text-muted mb-1 text-[10px] uppercase">{phase.name}</div>
                           <div className="text-foreground text-xs font-semibold">

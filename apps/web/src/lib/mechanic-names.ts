@@ -1,134 +1,12 @@
-/**
- * Human-readable German names for raw EI mechanic names (the `mechanicName`
- * field, e.g. "J.Breath.H"). These short codes come straight from EI's
- * boss-specific mechanic definitions in `GW2EIEvtcParser` (Harvest Temple
- * CM) — verified against that source, not guessed. Each entry there defines
- * (short code, description, display name), e.g.:
- *
- *   new PlayerDstHealthDamageHitMechanic(BreathOfJormag, ..., "J.Breath.H",
- *     "Hit by Jormag Breath", "Jormag Breath", Sev1, 150)
- *
- * The suffix codes mean: .H = Hit (getroffen), .B = Bait (intentionally
- * assigned to solo-take a mechanic — not a fail, see isNoiseMechanic),
- * .D = Debuff received, .CC = crowd-controlled/stunned, .L/.K = achievement
- * Lost/Kept.
- *
- * Entries not sourced from EI's Harvest Temple definitions (generic
- * cross-encounter mechanics like "Dead"/"Downed", or codes not yet seen in
- * this list) are marked "(vermutlich)" — best-effort guess, not verified.
- */
-const MECHANIC_NAMES: Record<string, string> = {
-  // Generic, cross-encounter (not from the Harvest Temple mechanic list)
-  Dead: "Gestorben",
-  Downed: "Downstate",
-  Res: "Wiederbelebt",
-  Resp: "Wiederbelebung",
-  "Got up": "Aufgestanden",
-  DC: "Disconnect",
-  Lckt: "Anvisiert (vermutlich)",
-  Lnch: "Hochgeschleudert (vermutlich)",
-  "Knck.Dwn": "Knockdown",
-  "Knck.Pll": "Weggezogen (Pull, vermutlich)",
-  Debilitated: "Geschwächt (Debilitated)",
-  Infirmity: "Gebrechlichkeit (Infirmity)",
-
-  // General (Harvest Temple, all phases)
-  "Spread.B": "Spread Bait",
-  "Red.B": "Red Bait",
-  "Void.D": "Void-Debuff erhalten",
-  "Void.H": "Void — getroffen",
-  "Red.H": "Red Hit",
-  "Spread.H": "Spread Hit",
-  "Orb Push": "Orb gestoßen",
-  "NopeRopes.Achiv.L": "Erfolg „Nope Ropes“ verpasst",
-  "NopeRopes.Achiv.K": "Erfolg „Nope Ropes“ behalten",
-  "VoidExp.H": "Void-Explosion — getroffen",
-  "VoidExp.Champ.H": "Void-Explosion (Champion) — getroffen",
-  "MagicDisc.H": "Magieentladung — getroffen",
-  "S.Green": "Grünkreis — erfolgreich",
-  "F.Green": "Grünkreis — verfehlt",
-
-  // Purification 1
-  "Light.H": "Blitz Jormags — getroffen",
-  "Flame.H": "Flammen Primordus' — getroffen",
-  "Storm.H": "Kralkatorriks Sturmfall — getroffen",
-
-  // Jormag
-  "J.Breath.H": "Atem Jormags — getroffen",
-  "J.Grasp.H": "Griff Jormags — getroffen",
-  "J.Meteor.H": "Meteor Jormags — getroffen",
-
-  // Primordus
-  "Slam.H": "Lava Slam (Chin) Hit",
-  "Jaws.H": "Kiefer der Zerstörung (Bite) Hit",
-  // Synthetic markers (not a raw EI mechanic) — every cast from the boss's
-  // own cast log (targets[].rotation), not just the ones that hit.
-  "Jaws.Cast": "Kiefer der Zerstörung (Bite)",
-  "Slam.Cast": "Lava Slam (Chin)",
-
-  // Kralkatorrik
-  "Barrage.H": "Meteor Hit",
-  "Beam.H": "Gebrandeter Strahl",
-  "Beam.Cast": "Branding Beam",
-  "Artillery.H": "Brandbomber-Artillerie — getroffen",
-  "K.Pool.H": "Kralkatorriks Void-Pool — getroffen",
-
-  // Purification 2
-  "Goop.H": "Herz-Schleim — getroffen",
-  "Bees.H": "Bienen des Herzens Hit",
-  "Grav.Cru.H": "Schwerkraft-Zerquetschen — getroffen",
-  "NigEpoch.H": "Alptraum-Epoche — getroffen",
-
-  // Mordremoth
-  "ShckWv.H": "Mordremoths Schockwelle — getroffen",
-  "ShckWv.Start": "Mordremoths Schockwelle — gestartet",
-  "ShckWv.Cast": "Mordremoths Schockwelle — Angriff",
-  "M.Poison.H": "Mordremoths Giftgebrüll Hit",
-  "Kick.H": "Tritt des Void-Schädelspalters",
-  "ChrgShot.H": "Schädelspalters Schuss",
-
-  // Giants
-  "Scream.G.CC": "Todesschrei des Riesen — betäubt",
-  "RotBile.H": "Fauliger Auswurf des Riesen — getroffen",
-  "Stomp.CC": "Stampfer des Riesen — betäubt",
-
-  // Zhaitan
-  "Scream.H": "Zhaitans Scream",
-  "Scream.Cast": "Zhaitans Schrei — Angriff",
-  "Z.Poison.H": "Gift Zhaitans — getroffen",
-  "T.Slam.H": "Schwanzschlag Zhaitans — getroffen",
-
-  // Purification 3
-  "Prjtile.H": "Herz-Geschoss (Corrupted Waters) — getroffen",
-  "Whrlpl.H": "Hydro-Ausbruch (Whirlpool) — getroffen",
-  "CallLigh.H": "Herbeigerufener Blitz — getroffen",
-  "FrozFury.H": "Gefrorene Wut — getroffen",
-  "RollFlame.H": "Rollende Flamme — getroffen",
-  "ShatEarth.H": "Erdbeben (Shatter Earth) — getroffen",
-
-  // Soo-Won
-  "Tsunami.H": "Soo-Wons Tsunami — getroffen",
-  "Claw.H": "Klaue Soo-Wons — getroffen",
-  "SW.Pool.H": "Soo-Wons Void-Pool — getroffen",
-  "Tail.H": "Schwanz Soo-Wons — getroffen",
-  "Torment.H": "Qual der Leere (Torment of the Void) — getroffen",
-  "MagHail.H": "Magischer Hagel — getroffen",
-  "Firebomb.H": "Feuerbombe — getroffen",
-  "WyvBreath.H": "Wyvernatem — getroffen",
-  "Charge.H": "Ansturm des Vernichters — getroffen",
-  "Charge.CC": "Ansturm des Vernichters — betäubt",
-  "GlaSlam.H": "Eisiger Schlag — getroffen",
-  "GlaSlam.CC": "Eisiger Schlag — betäubt",
-
-  // Purification 4
-  "GraspVoid.H": "Griff der Leere (finales Orb-Geschoss) — getroffen",
-};
+import { getBossCuration } from "./bosses/registry";
 
 /**
- * Best-effort fallback for raw names not in the curated list above: split
+ * Best-effort fallback for raw names not in a boss's curated map: split
  * "Foo.Bar.H" into "Foo Bar" and expand the trailing suffix code, so an
  * unmapped mechanic still reads as words instead of an opaque EI code.
- * Suffix meanings per the verified EI source (see header comment).
+ * Suffix meanings: .H = Hit, .B = Bait, .D = Debuff, .CC = crowd control,
+ * .L/.K = achievement Lost/Kept — see lib/bosses/harvest-temple.ts for
+ * how these were verified against EI's own source.
  */
 function humanizeFallback(mechanicName: string): string {
   const parts = mechanicName.split(".");
@@ -155,10 +33,12 @@ function humanizeFallback(mechanicName: string): string {
  * best-effort guess — it was hand-authored for that specific boss.
  */
 export function translateMechanicName(
+  bossId: string,
   mechanicName: string,
   curatedDisplayName?: string,
 ): string {
-  if (MECHANIC_NAMES[mechanicName]) return MECHANIC_NAMES[mechanicName];
+  const curated = getBossCuration(bossId)?.mechanicNames[mechanicName];
+  if (curated) return curated;
   if (curatedDisplayName && curatedDisplayName !== mechanicName) return curatedDisplayName;
   return humanizeFallback(mechanicName);
 }

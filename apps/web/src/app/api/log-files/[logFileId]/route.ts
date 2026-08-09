@@ -26,8 +26,8 @@ export async function DELETE(
   }
   await requireProjectMembership(logFile.batch.projectId, session.user.id);
 
-  const storageKeys = [logFile.storageKeyRaw, logFile.storageKeyJson].filter(
-    (key): key is string => Boolean(key),
+  const storageKeys = [logFile.storageKeyRaw, logFile.storageKeyJson].filter((key): key is string =>
+    Boolean(key),
   );
   if (storageKeys.length > 0) {
     await deleteObjects(createStorageClient(), storageKeys);

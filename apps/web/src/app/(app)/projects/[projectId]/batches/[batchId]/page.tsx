@@ -68,7 +68,12 @@ export default async function BatchDetailPage(
     ),
   ).length;
 
-  let furthestPhase: { name: string; order: number } | null = null;
+  // Assumes one boss per batch (true for every real batch so far) — used
+  // for the aggregate phase cards and the client-side timeline component,
+  // which both need a single bossId to resolve curated colors/mechanics.
+  const batchBossId = encounters[0]?.encounter.bossId ?? "";
+
+  let furthestPhase: { name: string; order: number; bossId: string } | null = null;
   for (const { encounter } of encounters) {
     for (const phase of encounter.phaseResults) {
       if (
@@ -76,7 +81,7 @@ export default async function BatchDetailPage(
         isMainPhase(encounter.bossId, phase.name) &&
         (!furthestPhase || phase.order > furthestPhase.order)
       ) {
-        furthestPhase = phase;
+        furthestPhase = { ...phase, bossId: encounter.bossId };
       }
     }
   }
@@ -113,12 +118,16 @@ export default async function BatchDetailPage(
         // `mechanics` array below (that feeds the timeline tick).
         if (
           event.mechanicName === "Dead" ||
-          isVisibleCastMarker(event.mechanicName) ||
-          isNoiseMechanic(event.mechanicName)
+          isVisibleCastMarker(encounter.bossId, event.mechanicName) ||
+          isNoiseMechanic(encounter.bossId, event.mechanicName)
         )
           continue;
         const entry = agg.mechanics.get(event.mechanicName) ?? {
-          displayName: translateMechanicName(event.mechanicName, event.displayName),
+          displayName: translateMechanicName(
+            encounter.bossId,
+            event.mechanicName,
+            event.displayName,
+          ),
           count: 0,
         };
         entry.count += 1;
@@ -143,6 +152,7 @@ export default async function BatchDetailPage(
     const furthest = reachedMainPhases.at(-1) ?? null;
     return {
       logFileId: logFile.id,
+      bossId: encounter.bossId,
       n: i + 1,
       success: encounter.success,
       furthestPhase: furthest ? { name: furthest.name, order: furthest.order } : null,
@@ -164,10 +174,12 @@ export default async function BatchDetailPage(
       ),
       mechanics: encounter.phaseResults.flatMap((p) =>
         p.mechanicEvents
-          .filter((m) => m.mechanicName !== "Dead" && !isNoiseMechanic(m.mechanicName))
+          .filter(
+            (m) => m.mechanicName !== "Dead" && !isNoiseMechanic(encounter.bossId, m.mechanicName),
+          )
           .map((m) => ({
             timeMs: m.timeMs,
-            name: translateMechanicName(m.mechanicName, m.displayName),
+            name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
             mechanicName: m.mechanicName,
           })),
       ),
@@ -180,11 +192,11 @@ export default async function BatchDetailPage(
           .filter(
             (m) =>
               m.mechanicName !== "Dead" &&
-              !isVisibleCastMarker(m.mechanicName) &&
-              !isNoiseMechanic(m.mechanicName),
+              !isVisibleCastMarker(encounter.bossId, m.mechanicName) &&
+              !isNoiseMechanic(encounter.bossId, m.mechanicName),
           )
           .map((m) => ({
-            name: translateMechanicName(m.mechanicName, m.displayName),
+            name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
             player: m.playerResult?.characterName ?? null,
           })),
       })),
@@ -229,7 +241,11 @@ export default async function BatchDetailPage(
             Weiteste Phase
           </div>
           {furthestPhase ? (
-            <PhaseBadge name={furthestPhase.name} order={furthestPhase.order} />
+            <PhaseBadge
+              bossId={furthestPhase.bossId}
+              name={furthestPhase.name}
+              order={furthestPhase.order}
+            />
           ) : (
             <span className="text-muted text-sm">—</span>
           )}
@@ -265,6 +281,7 @@ export default async function BatchDetailPage(
       <BatchAttempts
         projectId={projectId}
         batchId={batchId}
+        bossId={batchBossId}
         attempts={attemptRows}
         batchPhaseStats={batchPhaseStats}
       />

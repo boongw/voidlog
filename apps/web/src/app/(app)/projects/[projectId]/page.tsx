@@ -54,7 +54,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             )
           : 0;
 
-      let furthestPhase: { name: string; order: number } | null = null;
+      let furthestPhase: { name: string; order: number; bossId: string } | null = null;
       for (const encounter of encounters) {
         for (const phase of encounter.phaseResults) {
           if (
@@ -62,7 +62,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             isMainPhase(encounter.bossId, phase.name) &&
             (!furthestPhase || phase.order > furthestPhase.order)
           ) {
-            furthestPhase = phase;
+            furthestPhase = { ...phase, bossId: encounter.bossId };
           }
         }
       }
@@ -158,7 +158,11 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
               </Table.Cell>
               <Table.Cell>
                 {batch.furthestPhase ? (
-                  <PhaseBadge name={batch.furthestPhase.name} order={batch.furthestPhase.order} />
+                  <PhaseBadge
+                    bossId={batch.furthestPhase.bossId}
+                    name={batch.furthestPhase.name}
+                    order={batch.furthestPhase.order}
+                  />
                 ) : (
                   "—"
                 )}

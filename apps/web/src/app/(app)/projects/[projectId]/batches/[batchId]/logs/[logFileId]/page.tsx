@@ -99,7 +99,7 @@ export default async function LogAnalysisPage(
             const deathTime = earliestDeathByPlayer.get(p.id);
             return deathTime === undefined || deathTime > phase.startMs;
           });
-          const color = phaseColor(phase.order, phase.name);
+          const color = phaseColor(encounter.bossId, phase.order, phase.name);
           return (
             <Card
               key={phase.id}
@@ -136,10 +136,12 @@ export default async function LogAnalysisPage(
                 </span>
               </div>
 
-              {phase.mechanicEvents.some((e) => !isNoiseMechanic(e.mechanicName)) ? (
+              {phase.mechanicEvents.some(
+                (e) => !isNoiseMechanic(encounter.bossId, e.mechanicName),
+              ) ? (
                 <div className="border-line-soft mt-3 flex flex-wrap gap-2 border-t pt-3">
                   {phase.mechanicEvents
-                    .filter((event) => !isNoiseMechanic(event.mechanicName))
+                    .filter((event) => !isNoiseMechanic(encounter.bossId, event.mechanicName))
                     .map((event) => (
                       <span
                         key={event.id}
@@ -147,7 +149,11 @@ export default async function LogAnalysisPage(
                       >
                         <span className="bg-primary h-2 w-2 rounded-[1px]" />
                         <span className="text-muted-strong">
-                          {translateMechanicName(event.mechanicName, event.displayName)}
+                          {translateMechanicName(
+                            encounter.bossId,
+                            event.mechanicName,
+                            event.displayName,
+                          )}
                         </span>
                         {event.playerResult ? (
                           <span className="text-danger font-semibold">
