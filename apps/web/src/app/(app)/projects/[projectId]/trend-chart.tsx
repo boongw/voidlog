@@ -1,52 +1,88 @@
-interface TrendPoint {
+export interface TrendPoint {
   id: string;
   avgGroupDps: number;
+  greenFailRate: number | null;
 }
 
 const WIDTH = 760;
 const HEIGHT = 140;
 const TOP = 10;
 const BOTTOM = 130;
+// Reserved on the left for the y-axis value labels, so the plotted line
+// never overlaps its own axis.
+const AXIS_WIDTH = 46;
+const PLOT_WIDTH = WIDTH - AXIS_WIDTH;
 
 function buildPoints(values: number[], min: number, max: number): string {
   const span = max - min || 1;
   return values
     .map((v, i) => {
-      const x = values.length === 1 ? WIDTH / 2 : (i / (values.length - 1)) * WIDTH;
+      const x =
+        AXIS_WIDTH + (values.length === 1 ? PLOT_WIDTH / 2 : (i / (values.length - 1)) * PLOT_WIDTH);
       const y = BOTTOM - ((v - min) / span) * (BOTTOM - TOP);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
 }
 
-export function TrendChart({ points }: { points: TrendPoint[] }) {
-  const dpsValues = points.map((p) => p.avgGroupDps);
-  const dpsMin = Math.min(...dpsValues);
-  const dpsMax = Math.max(...dpsValues);
+function SingleLineChart({
+  values,
+  color,
+  formatValue,
+}: {
+  values: number[];
+  color: string;
+  formatValue: (v: number) => string;
+}) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const mid = (min + max) / 2;
+  const midY = (TOP + BOTTOM) / 2;
 
   return (
-    <>
-      <svg
-        width="100%"
-        height={HEIGHT}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        preserveAspectRatio="none"
-      >
-        <line x1="0" y1="35" x2={WIDTH} y2="35" stroke="var(--line-soft)" strokeWidth="1" />
-        <line x1="0" y1="70" x2={WIDTH} y2="70" stroke="var(--line-soft)" strokeWidth="1" />
-        <line x1="0" y1="105" x2={WIDTH} y2="105" stroke="var(--line-soft)" strokeWidth="1" />
-        <polyline
-          points={buildPoints(dpsValues, dpsMin, dpsMax)}
-          fill="none"
-          stroke="var(--primary)"
-          strokeWidth="2"
-        />
-      </svg>
-      <div className="mt-2.5 flex gap-5">
-        <div className="text-muted-strong flex items-center gap-1.5 text-xs">
-          <span className="bg-primary inline-block h-0.5 w-2.5" />Ø Gruppen-DPS
-        </div>
-      </div>
-    </>
+    <svg width="100%" height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none">
+      <line x1={AXIS_WIDTH} y1={TOP} x2={WIDTH} y2={TOP} stroke="var(--line-soft)" strokeWidth="1" />
+      <line x1={AXIS_WIDTH} y1={midY} x2={WIDTH} y2={midY} stroke="var(--line-soft)" strokeWidth="1" />
+      <line
+        x1={AXIS_WIDTH}
+        y1={BOTTOM}
+        x2={WIDTH}
+        y2={BOTTOM}
+        stroke="var(--line-soft)"
+        strokeWidth="1"
+      />
+      <text x={AXIS_WIDTH - 6} y={TOP + 3} textAnchor="end" fontSize="10" fill="var(--muted)">
+        {formatValue(max)}
+      </text>
+      <text x={AXIS_WIDTH - 6} y={midY + 3} textAnchor="end" fontSize="10" fill="var(--muted)">
+        {formatValue(mid)}
+      </text>
+      <text x={AXIS_WIDTH - 6} y={BOTTOM + 3} textAnchor="end" fontSize="10" fill="var(--muted)">
+        {formatValue(min)}
+      </text>
+      <polyline points={buildPoints(values, min, max)} fill="none" stroke={color} strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function DpsTrendChart({ points }: { points: TrendPoint[] }) {
+  const values = points.map((p) => p.avgGroupDps);
+  return (
+    <SingleLineChart
+      values={values}
+      color="var(--primary)"
+      formatValue={(v) => Math.round(v).toLocaleString("de-DE")}
+    />
+  );
+}
+
+export function GreenFailTrendChart({ points }: { points: TrendPoint[] }) {
+  const values = points.map((p) => p.greenFailRate ?? 0);
+  return (
+    <SingleLineChart
+      values={values}
+      color="var(--danger)"
+      formatValue={(v) => `${Math.round(v)}%`}
+    />
   );
 }

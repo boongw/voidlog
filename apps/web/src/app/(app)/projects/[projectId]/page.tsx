@@ -6,7 +6,7 @@ import { isMainPhase } from "@/lib/main-phases";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 import { DeleteProjectButton } from "./delete-project-button";
-import { TrendChart } from "./trend-chart";
+import { DpsTrendChart, GreenFailTrendChart } from "./trend-chart";
 
 export default async function ProjectDetailPage(props: PageProps<"/projects/[projectId]">) {
   const { projectId } = await props.params;
@@ -26,7 +26,14 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
               bossId: true,
               success: true,
               recordedAt: true,
-              phaseResults: { select: { name: true, order: true, reached: true } },
+              phaseResults: {
+                select: {
+                  name: true,
+                  order: true,
+                  reached: true,
+                  mechanicEvents: { select: { mechanicName: true } },
+                },
+              },
               playerResults: { select: { dps: true } },
             },
           },
@@ -44,6 +51,15 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
       const kills = encounters.filter((e) => e.success).length;
       const successRate =
         encounters.length > 0 ? Math.round((kills / encounters.length) * 100) : null;
+
+      // "F.Green" is HTCM's raw EI mechanic code for a failed Green stack
+      // (see harvest-temple.ts) — hardcoded like the same stat on the batch
+      // detail page, pending a boss-pluggable stat system.
+      const greenFailedCount = encounters.filter((e) =>
+        e.phaseResults.some((p) => p.mechanicEvents.some((m) => m.mechanicName === "F.Green")),
+      ).length;
+      const greenFailRate =
+        encounters.length > 0 ? Math.round((greenFailedCount / encounters.length) * 100) : null;
       const avgGroupDps =
         encounters.length > 0
           ? Math.round(
@@ -87,6 +103,8 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         attempts: encounters.length,
         kills,
         successRate,
+        greenFailedCount,
+        greenFailRate,
         avgGroupDps,
         furthestPhase,
       };
@@ -121,12 +139,20 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
       </div>
 
       {trendPoints.length >= 2 ? (
-        <Card size="3" className="border-line bg-surface mb-6 border">
-          <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
-            Ø Gruppen-DPS · letzte {trendPoints.length} Abende
-          </div>
-          <TrendChart points={trendPoints} />
-        </Card>
+        <div className="mb-6 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+          <Card size="3" className="border-line bg-surface border">
+            <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
+              Ø Gruppen-DPS · letzte {trendPoints.length} Abende
+            </div>
+            <DpsTrendChart points={trendPoints} />
+          </Card>
+          <Card size="3" className="border-line bg-surface border">
+            <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
+              Green-Fail-Rate · letzte {trendPoints.length} Abende
+            </div>
+            <GreenFailTrendChart points={trendPoints} />
+          </Card>
+        </div>
       ) : null}
 
       <div className="text-muted-strong mb-2.5 text-sm font-semibold">Raid-Abende</div>
@@ -137,6 +163,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             <Table.ColumnHeaderCell>Versuche</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Erfolgsquote</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Green verfehlt</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Weiteste Phase</Table.ColumnHeaderCell>
           </Table.Row>
         </Table.Header>
@@ -156,6 +183,9 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
               <Table.Cell className="text-warning font-semibold">
                 {batch.successRate === null ? "—" : `${batch.successRate}%`}
               </Table.Cell>
+              <Table.Cell className="text-danger font-semibold">
+                {batch.greenFailRate === null ? "—" : `${batch.greenFailRate}%`}
+              </Table.Cell>
               <Table.Cell>
                 {batch.furthestPhase ? (
                   <PhaseBadge
@@ -171,7 +201,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
           ))}
           {batches.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={5} className="text-muted">
+              <Table.Cell colSpan={6} className="text-muted">
                 Noch keine Batches.
               </Table.Cell>
             </Table.Row>
