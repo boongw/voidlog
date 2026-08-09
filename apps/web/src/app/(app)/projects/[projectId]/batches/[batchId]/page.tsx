@@ -188,14 +188,16 @@ export default async function BatchDetailPage(
         order: p.order,
         reached: p.reached,
         success: p.success,
+        // Keeps cast markers (boss attacks) in here too, unlike the death/
+        // fail-only `mechanics` field above — the client needs them to build
+        // the per-phase attack filter groups. isVisibleCastMarker is applied
+        // client-side only when rendering the plain-text mechanic list.
         mechanics: p.mechanicEvents
           .filter(
-            (m) =>
-              m.mechanicName !== "Dead" &&
-              !isVisibleCastMarker(encounter.bossId, m.mechanicName) &&
-              !isNoiseMechanic(encounter.bossId, m.mechanicName),
+            (m) => m.mechanicName !== "Dead" && !isNoiseMechanic(encounter.bossId, m.mechanicName),
           )
           .map((m) => ({
+            mechanicName: m.mechanicName,
             name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
             player: m.playerResult?.characterName ?? null,
           })),

@@ -3,7 +3,7 @@
 import { ChevronRightIcon, Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Card, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { PhaseBadge, phaseColor } from "@/components/phase-badge";
 import { isVisibleCastMarker } from "@/lib/mechanics";
 
@@ -22,7 +22,7 @@ export interface AttemptRow {
     order: number;
     reached: boolean;
     success: boolean;
-    mechanics: { name: string; player: string | null }[];
+    mechanics: { mechanicName: string; name: string; player: string | null }[];
   }[];
 }
 
@@ -150,43 +150,120 @@ function attackType(mechanicName: string): AttackType | null {
   return null;
 }
 
-// Explains the attack glyphs and fail/death markers once for the whole
-// "Versuchsverlauf" block — not repeated per row, since it's the same
-// vocabulary for every attempt.
-function TimelineLegend() {
-  const attackEntries: AttackType[] = ["jaws", "slam", "beam", "shockwave", "scream"];
+interface PhaseFilterGroup {
+  name: string;
+  order: number;
+  attacks: [string, AttackType][];
+  fails: [string, string][];
+}
+
+// One toggle chip for a single mechanic — clicking it hides that mechanic's
+// markers from every attempt row below (keyed by the raw mechanicName, so it
+// works for any boss, not just the hardcoded HTCM attack glyphs).
+function MechanicToggle({
+  mechanicName,
+  label,
+  icon,
+  isHidden,
+  onToggle,
+}: {
+  mechanicName: string;
+  label: string;
+  icon: ReactNode;
+  isHidden: boolean;
+  onToggle: (mechanicName: string) => void;
+}) {
   return (
-    <div className="border-line-soft mb-3.5 flex flex-wrap gap-x-5 gap-y-2 border-b pb-3.5">
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-        <span className="text-muted text-[10px] font-semibold uppercase tracking-wide">
-          Boss-Angriffe
-        </span>
-        {attackEntries.map((type) => (
-          <span key={type} className="text-muted-strong flex items-center gap-1.5 text-xs">
-            <AttackGlyph type={type} />
-            {ATTACK_LABEL[type]}
-          </span>
+    <button
+      type="button"
+      onClick={() => onToggle(mechanicName)}
+      title={isHidden ? "Marker einblenden" : "Marker ausblenden"}
+      className={`flex items-center gap-1.5 text-xs ${
+        isHidden ? "text-muted opacity-45" : "text-muted-strong"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+// Collapsible, phase-grouped filter for the "Versuchsverlauf" timeline —
+// collapsed by default since it's a secondary control, not something every
+// visitor needs. Grouping by phase (instead of one flat list) mirrors the
+// aggregate phase cards above it, so the same phase names/colors orient the
+// user here too.
+function MechanicFilterAccordion({
+  bossId,
+  phaseGroups,
+  hidden,
+  onToggle,
+}: {
+  bossId: string;
+  phaseGroups: PhaseFilterGroup[];
+  hidden: Set<string>;
+  onToggle: (mechanicName: string) => void;
+}) {
+  return (
+    <details className="border-line-soft group mb-3.5 border-b pb-3.5">
+      <summary className="text-muted-strong flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold select-none">
+        <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+        Mechanik-Filter
+      </summary>
+      <div className="mt-3 hidden flex-col gap-3 group-open:flex">
+        {phaseGroups.map((group) => (
+          <div key={group.name}>
+            <div
+              className="mb-1.5 text-[11px] font-semibold"
+              style={{ color: phaseColor(bossId, group.order, group.name) }}
+            >
+              {group.name}
+            </div>
+            <div className="flex flex-wrap gap-x-3.5 gap-y-1.5">
+              {group.attacks.map(([mechanicName, type]) => (
+                <MechanicToggle
+                  key={mechanicName}
+                  mechanicName={mechanicName}
+                  label={ATTACK_LABEL[type]}
+                  icon={<AttackGlyph type={type} />}
+                  isHidden={hidden.has(mechanicName)}
+                  onToggle={onToggle}
+                />
+              ))}
+              {group.fails.map(([mechanicName, label]) => (
+                <MechanicToggle
+                  key={mechanicName}
+                  mechanicName={mechanicName}
+                  label={label}
+                  icon={
+                    mechanicName === "Downed" ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
+                      <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />
+                    ) : (
+                      <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />
+                    )
+                  }
+                  isHidden={hidden.has(mechanicName)}
+                  onToggle={onToggle}
+                />
+              ))}
+              {group.attacks.length === 0 && group.fails.length === 0 ? (
+                <span className="text-muted text-xs">Keine Mechaniken erfasst.</span>
+              ) : null}
+            </div>
+          </div>
         ))}
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+          <span className="text-muted text-[10px] font-semibold uppercase tracking-wide">
+            Weitere
+          </span>
+          <span className="text-muted-strong flex items-center gap-1.5 text-xs">
+            <Cross2Icon className="text-danger h-3.5 w-3.5" />
+            Tod
+          </span>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-        <span className="text-muted text-[10px] font-semibold uppercase tracking-wide">
-          Gefailte Mechaniken
-        </span>
-        <span className="text-muted-strong flex items-center gap-1.5 text-xs">
-          <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />
-          Verfehlte Mechanik
-        </span>
-        <span className="text-muted-strong flex items-center gap-1.5 text-xs">
-          <Cross2Icon className="text-danger h-3.5 w-3.5" />
-          Tod
-        </span>
-        <span className="text-muted-strong flex items-center gap-1.5 text-xs">
-          {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here */}
-          <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />
-          Downstate
-        </span>
-      </div>
-    </div>
+    </details>
   );
 }
 
@@ -204,7 +281,58 @@ export function BatchAttempts({
   batchPhaseStats: BatchPhaseStat[];
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [hiddenMechanics, setHiddenMechanics] = useState<Set<string>>(new Set());
   const maxDurationMs = Math.max(1, ...attempts.map((a) => a.durationMs));
+
+  function toggleMechanic(mechanicName: string) {
+    setHiddenMechanics((prev) => {
+      const next = new Set(prev);
+      if (next.has(mechanicName)) {
+        next.delete(mechanicName);
+      } else {
+        next.add(mechanicName);
+      }
+      return next;
+    });
+  }
+
+  // Distinct mechanics actually present per main phase, used to build the
+  // phase-grouped filter accordion — boss-agnostic (attack glyphs only show
+  // up if attackType() recognizes the mechanicName, which today means HTCM;
+  // any other boss just gets fail-mechanic groups).
+  const phaseFilterGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { order: number; attacks: Map<string, AttackType>; fails: Map<string, string> }
+    >();
+    for (const a of attempts) {
+      for (const phase of a.phases) {
+        const group = groups.get(phase.name) ?? {
+          order: phase.order,
+          attacks: new Map<string, AttackType>(),
+          fails: new Map<string, string>(),
+        };
+        group.order = Math.min(group.order, phase.order);
+        for (const m of phase.mechanics) {
+          const type = attackType(m.mechanicName);
+          if (type) {
+            if (!group.attacks.has(m.mechanicName)) group.attacks.set(m.mechanicName, type);
+          } else if (!group.fails.has(m.mechanicName)) {
+            group.fails.set(m.mechanicName, m.mechanicName === "Downed" ? "Downstate" : m.name);
+          }
+        }
+        groups.set(phase.name, group);
+      }
+    }
+    return [...groups.entries()]
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([name, g]) => ({
+        name,
+        order: g.order,
+        attacks: [...g.attacks.entries()],
+        fails: [...g.fails.entries()].sort((a, b) => a[1].localeCompare(b[1])),
+      }));
+  }, [attempts]);
 
   return (
     <Tabs.Root defaultValue="table">
@@ -309,7 +437,12 @@ export function BatchAttempts({
         </div>
 
         <div className="text-muted-strong mb-2.5 text-sm font-semibold">Versuchsverlauf</div>
-        <TimelineLegend />
+        <MechanicFilterAccordion
+          bossId={bossId}
+          phaseGroups={phaseFilterGroups}
+          hidden={hiddenMechanics}
+          onToggle={toggleMechanic}
+        />
         <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
           {attempts.map((a) => {
             const isOpen = expanded === a.n;
@@ -345,7 +478,7 @@ export function BatchAttempts({
                     <span className="relative h-4 w-full">
                       {a.mechanics.map((m, i) => {
                         const type = attackType(m.mechanicName);
-                        if (!type) return null;
+                        if (!type || hiddenMechanics.has(m.mechanicName)) return null;
                         const flipped =
                           type === "beam" ? beamCasts.indexOf(m) % 2 === 1 : undefined;
                         return (
@@ -388,7 +521,11 @@ export function BatchAttempts({
                         </span>
                       ))}
                       {a.mechanics
-                        .filter((m) => !isVisibleCastMarker(a.bossId, m.mechanicName))
+                        .filter(
+                          (m) =>
+                            !isVisibleCastMarker(a.bossId, m.mechanicName) &&
+                            !hiddenMechanics.has(m.mechanicName),
+                        )
                         .map((m, i) => (
                           <span
                             key={`mech-${i}`}
@@ -413,29 +550,39 @@ export function BatchAttempts({
                 {isOpen ? (
                   <div className="border-line-soft border-t px-4 py-3.5 pl-[62px]">
                     <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
-                      {a.phases.map((phase) => (
-                        <div
-                          key={phase.order}
-                          className="bg-surface-2 border-line border-l-3 rounded-sm border-y border-r px-2.5 py-2"
-                          style={{ borderLeftColor: phaseColor(a.bossId, phase.order, phase.name) }}
-                        >
-                          <div className="text-muted mb-1 text-[10px] uppercase">{phase.name}</div>
-                          <div className="text-foreground text-xs font-semibold">
-                            {phase.reached
-                              ? phase.success
-                                ? "Abgeschlossen"
-                                : "Nicht abgeschlossen"
-                              : "Nicht erreicht"}
-                          </div>
-                          {phase.mechanics.length > 0 ? (
-                            <div className="text-muted-strong mt-1 text-[10.5px]">
-                              {phase.mechanics
-                                .map((m) => m.name + (m.player ? ` (${m.player})` : ""))
-                                .join(", ")}
+                      {a.phases.map((phase) => {
+                        // Boss-attack cast markers ride along in phase.mechanics
+                        // (needed to build the filter accordion above) but stay
+                        // out of this plain-text fail summary.
+                        const failMechanics = phase.mechanics.filter(
+                          (m) => !isVisibleCastMarker(a.bossId, m.mechanicName),
+                        );
+                        return (
+                          <div
+                            key={phase.order}
+                            className="bg-surface-2 border-line border-l-3 rounded-sm border-y border-r px-2.5 py-2"
+                            style={{ borderLeftColor: phaseColor(a.bossId, phase.order, phase.name) }}
+                          >
+                            <div className="text-muted mb-1 text-[10px] uppercase">
+                              {phase.name}
                             </div>
-                          ) : null}
-                        </div>
-                      ))}
+                            <div className="text-foreground text-xs font-semibold">
+                              {phase.reached
+                                ? phase.success
+                                  ? "Abgeschlossen"
+                                  : "Nicht abgeschlossen"
+                                : "Nicht erreicht"}
+                            </div>
+                            {failMechanics.length > 0 ? (
+                              <div className="text-muted-strong mt-1 text-[10.5px]">
+                                {failMechanics
+                                  .map((m) => m.name + (m.player ? ` (${m.player})` : ""))
+                                  .join(", ")}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                     <Link
                       href={`/projects/${projectId}/batches/${batchId}/logs/${a.logFileId}`}

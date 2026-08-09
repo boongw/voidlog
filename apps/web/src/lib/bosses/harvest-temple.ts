@@ -168,6 +168,7 @@ const NOISE_MECHANIC_NAMES = new Set([
   "Got up",
   "Red.B",
   "Spread.B",
+  "Spread.H",
   "J.Breath.H",
   "J.Grasp.H",
   "VoidExp.H",

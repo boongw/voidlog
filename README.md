@@ -135,7 +135,7 @@ pnpm typecheck        # tsc --noEmit across all packages
 - [x] Per-batch phase/mechanic timeline with boss-specific cast markers,
   curated mechanic translations, and chronological sorting by in-game
   recording time rather than upload order.
-- [ ] Per-mechanic filter to show/hide individual mechanics
+- [x] Per-mechanic filter to show/hide individual mechanics
 - [ ] add HTCm greens mechanic in boss attack row
 - [ ] Reveal mechanic analysis
 - [ ] Improve mechanic aggregation across a log batch
