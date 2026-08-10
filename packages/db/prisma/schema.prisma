@@ -146,6 +146,9 @@ model EncounterResult {
   logFileId  String    @unique
   bossId     String
   bossName   String
+  /// EI's `isCM` flag — Normal Mode and Challenge Mode share the same
+  /// bossId, so this is the only signal distinguishing them.
+  isCM       Boolean @default(false)
   success    Boolean
   durationMs Int
   /// When the fight actually happened in-game (EI's timeStartStd), not when

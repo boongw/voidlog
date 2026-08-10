@@ -62,8 +62,17 @@ export default async function LogAnalysisPage(
     <div className="max-w-3xl px-10 py-8">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="font-heading text-foreground-strong text-2xl font-bold">
+          <h1 className="font-heading text-foreground-strong flex items-center gap-2 text-2xl font-bold">
             {encounter.bossName}
+            {/* Normal Mode and Challenge Mode share the same bossId — this is
+                the only visual signal an attempt was uploaded in the wrong mode. */}
+            <span
+              className={`rounded-sm px-1.5 py-0.5 text-xs font-semibold ${
+                encounter.isCM ? "bg-primary/15 text-primary" : "bg-line-soft text-muted-strong"
+              }`}
+            >
+              {encounter.isCM ? "CM" : "NM"}
+            </span>
           </h1>
           <p className="text-muted mt-1 text-sm">
             {encounter.success ? "Success" : "Wipe"} bei {logFile.batch.label} · Dauer{" "}

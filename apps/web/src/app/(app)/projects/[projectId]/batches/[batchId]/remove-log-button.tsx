@@ -4,13 +4,19 @@ import { Button } from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function RemoveLogButton({ logFileId }: { logFileId: string }) {
+export function RemoveLogButton({
+  logFileId,
+  confirmMessage = "Fehlgeschlagenen Log-Upload entfernen?",
+}: {
+  logFileId: string;
+  confirmMessage?: string;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleRemove() {
-    if (!window.confirm("Fehlgeschlagenen Log-Upload entfernen?")) {
+    if (!window.confirm(confirmMessage)) {
       return;
     }
     setPending(true);

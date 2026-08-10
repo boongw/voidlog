@@ -159,6 +159,7 @@ export default async function BatchDetailPage(
     return {
       logFileId: logFile.id,
       bossId: encounter.bossId,
+      isCM: encounter.isCM,
       n: i + 1,
       success: encounter.success,
       furthestPhase: furthest ? { name: furthest.name, order: furthest.order } : null,

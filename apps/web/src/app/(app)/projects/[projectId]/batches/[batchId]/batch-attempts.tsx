@@ -6,10 +6,12 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { PhaseBadge, phaseColor } from "@/components/phase-badge";
 import { isVisibleCastMarker } from "@/lib/mechanics";
+import { RemoveLogButton } from "./remove-log-button";
 
 export interface AttemptRow {
   logFileId: string;
   bossId: string;
+  isCM: boolean;
   n: number;
   success: boolean;
   furthestPhase: { name: string; order: number } | null;
@@ -37,6 +39,21 @@ export interface BatchPhaseStat {
 function formatDuration(ms: number): string {
   const totalSeconds = Math.round(ms / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+// Normal Mode and Challenge Mode share the same bossId (see EncounterResult
+// .isCM) — this is the only visual signal that an attempt was accidentally
+// uploaded in the wrong mode.
+function ModeBadge({ isCM }: { isCM: boolean }) {
+  return (
+    <span
+      className={`rounded-sm px-1.5 py-0.5 text-[10px] font-semibold ${
+        isCM ? "bg-primary/15 text-primary" : "bg-line-soft text-muted-strong"
+      }`}
+    >
+      {isCM ? "CM" : "NM"}
+    </span>
+  );
 }
 
 type AttackType = "jaws" | "slam" | "beam" | "shockwave" | "scream" | "green";
@@ -237,6 +254,8 @@ function MechanicFilterAccordion({
   otherEntries,
   hidden,
   onToggle,
+  onSelectAll,
+  onDeselectAll,
 }: {
   bossId: string;
   phaseGroups: PhaseFilterGroup[];
@@ -245,6 +264,8 @@ function MechanicFilterAccordion({
   otherEntries: [string, string][];
   hidden: Set<string>;
   onToggle: (mechanicName: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
 }) {
   return (
     <details className="border-line-soft group mb-3.5 border-b pb-3.5">
@@ -253,6 +274,28 @@ function MechanicFilterAccordion({
         Mechanik-Filter
       </summary>
       <div className="mt-3 hidden flex-col gap-3 group-open:flex">
+        <div className="flex items-center gap-3.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onDeselectAll();
+            }}
+            className="text-accent text-xs font-semibold hover:underline"
+          >
+            Alle einblenden
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onSelectAll();
+            }}
+            className="text-accent text-xs font-semibold hover:underline"
+          >
+            Alle ausblenden
+          </button>
+        </div>
         {phaseGroups.map((group) => (
           <div key={group.name}>
             <div
@@ -372,6 +415,28 @@ export function BatchAttempts({
     });
   }
 
+  // Every mechanicName that can show up anywhere in the filter accordion
+  // (phase groups, "Mehrere Phasen", "Weitere") — all three sections are
+  // built from this same underlying data, so collecting it once here covers
+  // all of them for the select-all/deselect-all controls.
+  const allFilterMechanicNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const a of attempts) {
+      for (const phase of a.phases) {
+        for (const m of phase.mechanics) names.add(m.mechanicName);
+      }
+    }
+    return names;
+  }, [attempts]);
+
+  function selectAllMechanics() {
+    setHiddenMechanics(new Set(allFilterMechanicNames));
+  }
+
+  function deselectAllMechanics() {
+    setHiddenMechanics(new Set());
+  }
+
   // Distinct mechanics actually present per main phase, used to build the
   // phase-grouped filter accordion — boss-agnostic (attack glyphs only show
   // up if attackType() recognizes the mechanicName, which today means HTCM;
@@ -467,8 +532,10 @@ export function BatchAttempts({
             <Table.Row>
               <Table.ColumnHeaderCell>#</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Ergebnis</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Modus</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Weiteste Phase</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Dauer</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
@@ -480,6 +547,9 @@ export function BatchAttempts({
                   className={a.success ? "text-success font-semibold" : "text-danger font-semibold"}
                 >
                   {a.success ? "Kill" : "Wipe"}
+                </Table.Cell>
+                <Table.Cell>
+                  <ModeBadge isCM={a.isCM} />
                 </Table.Cell>
                 <Table.Cell>
                   {a.furthestPhase ? (
@@ -503,11 +573,17 @@ export function BatchAttempts({
                     Log ansehen →
                   </Link>
                 </Table.Cell>
+                <Table.Cell className="text-right">
+                  <RemoveLogButton
+                    logFileId={a.logFileId}
+                    confirmMessage={`Versuch #${a.n} (Log) endgültig aus diesem Batch löschen?`}
+                  />
+                </Table.Cell>
               </Table.Row>
             ))}
             {attempts.length === 0 ? (
               <Table.Row>
-                <Table.Cell colSpan={5} className="text-muted">
+                <Table.Cell colSpan={7} className="text-muted">
                   Noch keine ausgewerteten Versuche.
                 </Table.Cell>
               </Table.Row>
@@ -565,6 +641,8 @@ export function BatchAttempts({
           otherEntries={otherMechanicEntries}
           hidden={hiddenMechanics}
           onToggle={toggleMechanic}
+          onSelectAll={selectAllMechanics}
+          onDeselectAll={deselectAllMechanics}
         />
         <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
           {attempts.map((a) => {
