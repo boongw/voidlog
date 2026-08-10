@@ -199,6 +199,11 @@ const ATTACK_LABEL: Record<AttackType, string> = {
   redBait: "Red Bait",
 };
 
+// Testweise: fires much more often than the named boss casts (per-player,
+// repeats constantly) — kept in a separate lane above so it doesn't bury
+// Jaws/Slam/Beam/Shockwave/Scream under a wall of overlapping circles.
+const HIGH_FREQUENCY_ATTACK_TYPES = new Set<AttackType>(["green", "spreadBait", "redBait"]);
+
 // Maps a synthetic "*.Cast"/"*.Spawn" mechanicName (or a raw EI mechanic
 // treated as a boss-attack marker) to its attack glyph type — the single
 // place that connects worker-side cast-markers.ts / boss curation to the
@@ -705,13 +710,34 @@ export function BatchAttempts({
                     className="flex flex-col gap-0.5 justify-self-start"
                     style={{ width: `${Math.max((a.durationMs / maxDurationMs) * 100, 4)}%` }}
                   >
+                    {/* Lane 0 (test): Greens/baits fire far more often than the
+                        named boss casts below and were crowding/overlapping
+                        that lane — split into their own row above it. */}
+                    <span className="relative h-4 w-full">
+                      {a.mechanics.map((m, i) => {
+                        const type = attackType(m.mechanicName);
+                        if (!type || !HIGH_FREQUENCY_ATTACK_TYPES.has(type)) return null;
+                        if (hiddenMechanics.has(m.mechanicName)) return null;
+                        return (
+                          <span
+                            key={`bait-${i}`}
+                            title={m.name}
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                          >
+                            <AttackGlyph type={type} />
+                          </span>
+                        );
+                      })}
+                    </span>
                     {/* Lane 1: boss attacks — same icon size as the fail lane below,
                         positioned above the bar so the category reads from position
                         alone, not just from the glyph. */}
                     <span className="relative h-4 w-full">
                       {a.mechanics.map((m, i) => {
                         const type = attackType(m.mechanicName);
-                        if (!type || hiddenMechanics.has(m.mechanicName)) return null;
+                        if (!type || HIGH_FREQUENCY_ATTACK_TYPES.has(type)) return null;
+                        if (hiddenMechanics.has(m.mechanicName)) return null;
                         const flipped =
                           type === "beam" ? beamCasts.indexOf(m) % 2 === 1 : undefined;
                         return (
