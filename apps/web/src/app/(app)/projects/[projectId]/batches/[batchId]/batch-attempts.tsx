@@ -243,6 +243,10 @@ function failMechanicIcon(mechanicName: string) {
     // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
     return <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />;
   }
+  if (mechanicName === "Debilitated") {
+    // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
+    return <img src="/icons/debilitated.png" alt="" className="h-3.5 w-3.5" />;
+  }
   return <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />;
 }
 
@@ -734,12 +738,7 @@ export function BatchAttempts({
                             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                             style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
                           >
-                            {m.mechanicName === "Downed" ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
-                              <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />
-                            ) : (
-                              <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />
-                            )}
+                            {failMechanicIcon(m.mechanicName)}
                           </span>
                         ))}
                     </span>
