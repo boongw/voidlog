@@ -349,7 +349,7 @@ function MechanicToggle({
 // visitor needs. Grouping by phase (instead of one flat list) mirrors the
 // aggregate phase cards above it, so the same phase names/colors orient the
 // user here too.
-function failMechanicIcon(mechanicName: string) {
+function failMechanicIcon(mechanicName: string, options?: { distinguishGreen?: boolean }) {
   if (mechanicName === "Downed") {
     // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
     return <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />;
@@ -358,10 +358,13 @@ function failMechanicIcon(mechanicName: string) {
     // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
     return <img src="/icons/debilitated.png" alt="" className="h-3.5 w-3.5" />;
   }
-  if (mechanicName === "F.Green") {
+  if (mechanicName === "F.Green" && options?.distinguishGreen !== false) {
     // Reuse the same green-circle glyph as the boss-attack lane's
     // "Green.Spawn" marker, instead of the generic warning triangle, so a
-    // failed Green reads as "the same hazard" wherever it shows up.
+    // failed Green reads as "the same hazard" wherever it shows up. Opt out
+    // (distinguishGreen: false) in the per-attempt timeline's fail lane,
+    // which sits directly under the boss-attack lane using that same green
+    // glyph — there the two lanes need to stay visually distinct.
     return <AttackGlyph type="green" />;
   }
   return <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />;
@@ -894,7 +897,7 @@ export function BatchAttempts({
                           className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                           style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
                         >
-                          {failMechanicIcon(c.mechanicName)}
+                          {failMechanicIcon(c.mechanicName, { distinguishGreen: false })}
                         </span>
                       ))}
                     </span>
