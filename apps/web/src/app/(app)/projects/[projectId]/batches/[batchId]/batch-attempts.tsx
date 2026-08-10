@@ -33,7 +33,20 @@ export interface BatchPhaseStat {
   order: number;
   reached: number;
   total: number;
-  mechanics: { displayName: string; count: number }[];
+  mechanics: { mechanicName: string; displayName: string; count: number }[];
+}
+
+// Some curated phase colors (e.g. Harvest Temple's intermission "Purification"
+// intermission color) are deliberately muted for borders/progress fills but
+// unreadable as heading text on the card's dark background — fall back to a
+// neutral, always-readable color when the phase color itself is too dark,
+// rather than hardcoding a per-boss phase-name check here.
+function readableHeadingColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.35 ? "var(--muted-strong)" : hex;
 }
 
 function formatDuration(ms: number): string {
@@ -344,6 +357,12 @@ function failMechanicIcon(mechanicName: string) {
   if (mechanicName === "Debilitated") {
     // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
     return <img src="/icons/debilitated.png" alt="" className="h-3.5 w-3.5" />;
+  }
+  if (mechanicName === "F.Green") {
+    // Reuse the same green-circle glyph as the boss-attack lane's
+    // "Green.Spawn" marker, instead of the generic warning triangle, so a
+    // failed Green reads as "the same hazard" wherever it shows up.
+    return <AttackGlyph type="green" />;
   }
   return <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />;
 }
@@ -698,35 +717,42 @@ export function BatchAttempts({
         <p className="text-muted mb-3.5 text-xs">
           Aggregiert über alle {attempts.length} Versuche des Batches
         </p>
-        <div className="mb-7 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {batchPhaseStats.map((bp) => {
             const color = phaseColor(bossId, bp.order, bp.name);
             const reachedPct = bp.total > 0 ? Math.round((bp.reached / bp.total) * 100) : 0;
             return (
               <Card
                 key={bp.name}
-                size="2"
+                size="1"
                 className="border-line bg-surface border"
                 style={{ borderTop: `3px solid ${color}` }}
               >
-                <div className="font-heading mb-2 text-sm font-bold" style={{ color }}>
+                <div
+                  className="font-heading mb-1 text-xs font-bold"
+                  style={{ color: readableHeadingColor(color) }}
+                >
                   {bp.name}
                 </div>
-                <div className="text-muted-strong mb-1 text-xs">
+                <div className="text-muted-strong mb-1 text-[10px]">
                   {bp.reached} / {bp.total} erreicht
                 </div>
-                <div className="bg-line-soft mb-3 h-1 overflow-hidden rounded-full">
+                <div className="bg-line-soft mb-1.5 h-1 overflow-hidden rounded-full">
                   <div className="h-full" style={{ width: `${reachedPct}%`, background: color }} />
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {bp.mechanics.map((m) => (
-                    <div key={m.displayName} className="bg-line-soft/40 rounded-sm px-2 py-1.5">
-                      <div className="text-muted-strong text-xs">{m.displayName}</div>
-                      <div className="text-danger text-xs font-bold">{m.count}x verfehlt</div>
-                    </div>
+                    <span
+                      key={m.mechanicName}
+                      title={`${m.displayName}: ${m.count}x verfehlt`}
+                      className="bg-line-soft/40 flex items-center gap-1 rounded-sm px-1.5 py-1"
+                    >
+                      {failMechanicIcon(m.mechanicName)}
+                      <span className="text-foreground-strong text-[11px] font-bold">{m.count}</span>
+                    </span>
                   ))}
                   {bp.mechanics.length === 0 ? (
-                    <div className="text-muted text-xs">Keine Mechanik-Fehler erfasst.</div>
+                    <span className="text-muted text-[11px]">Keine Fehler.</span>
                   ) : null}
                 </div>
               </Card>

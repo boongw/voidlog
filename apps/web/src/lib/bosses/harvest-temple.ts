@@ -11,6 +11,7 @@ const MAIN_PHASE_NAMES = [
   "Primordus",
   "Kralkatorrik",
   "Mordremoth",
+  "Giants",
   "Zhaitan",
   "Soo-Won",
 ];
@@ -78,8 +79,8 @@ const MECHANIC_NAMES: Record<string, string> = {
   "VoidExp.H": "Void-Explosion — getroffen",
   "VoidExp.Champ.H": "Void-Explosion (Champion) — getroffen",
   "MagicDisc.H": "Magieentladung — getroffen",
-  "S.Green": "Grünkreis — erfolgreich",
-  "F.Green": "Grünkreis — verfehlt",
+  "S.Green": "Greens — erfolgreich",
+  "F.Green": "Greens — verfehlt",
   // Synthetic marker (not a raw EI mechanic) — one per Greens occurrence,
   // clustered from S.Green/F.Green timestamps (see
   // CLUSTER_SPAWN_MARKERS_BY_BOSS in the worker's cast-markers.ts). Labeled
@@ -89,7 +90,7 @@ const MECHANIC_NAMES: Record<string, string> = {
   // S.Green timestamp on a real log) — the true spawn instant isn't
   // available from this data source. Only exists for Jormag/Primordus/
   // Zhaitan — Kralkatorrik/Mordremoth/Soo-Won don't have this mechanic.
-  "Green.Spawn": "Grünkreise — aufgelöst",
+  "Green.Spawn": "Greens — aufgelöst",
 
   // Purification 1
   "Light.H": "Blitz Jormags — getroffen",
@@ -208,7 +209,9 @@ export const harvestTemple: BossCuration = {
   isMainPhase: (phaseName) =>
     MAIN_PHASE_NAMES.includes(phaseName) || phaseName.startsWith("Purification"),
   phaseColor: (_order, phaseName) => {
-    if (phaseName.startsWith("Purification")) return PURIFICATION_COLOR;
+    // "Giants" is an intermission like Purification (not itself a dragon),
+    // so it gets the same neutral treatment rather than a dragon color.
+    if (phaseName.startsWith("Purification") || phaseName === "Giants") return PURIFICATION_COLOR;
     return DRAGON_COLORS[phaseName];
   },
   mechanicNames: MECHANIC_NAMES,

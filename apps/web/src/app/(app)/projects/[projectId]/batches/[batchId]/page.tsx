@@ -96,13 +96,24 @@ export default async function BatchDetailPage(
   // on how many breakbar/CM sub-phases fired before it, so the same named
   // phase (e.g. "Purification 2") can land at different order values across
   // attempts. Grouping by order would then split it into duplicate cards.
+  // "S.Green"/"F.Green" are HTCM's raw success/fail codes for a Greens
+  // wave, "Green.Spawn" the synthetic per-wave marker clustered from them
+  // (see harvest-temple.ts) — any of the three means Greens happened in
+  // that phase for at least one attempt, even if every attempt in this
+  // particular batch resolved them successfully (0 fails). Tracked
+  // separately from `mechanics` below since Green.Spawn is a visible cast
+  // marker and S.Green is noise, so neither would otherwise leave a trace
+  // in the fail-count map.
+  const GREEN_MECHANIC_NAMES = new Set(["S.Green", "F.Green", "Green.Spawn"]);
+
   const phaseAgg = new Map<
     string,
     {
       name: string;
       order: number;
       reachedCount: number;
-      mechanics: Map<string, { displayName: string; count: number }>;
+      hasGreenMechanic: boolean;
+      mechanics: Map<string, { mechanicName: string; displayName: string; count: number }>;
     }
   >();
   for (const { encounter } of encounters) {
@@ -112,11 +123,13 @@ export default async function BatchDetailPage(
         name: phase.name,
         order: phase.order,
         reachedCount: 0,
-        mechanics: new Map<string, { displayName: string; count: number }>(),
+        hasGreenMechanic: false,
+        mechanics: new Map<string, { mechanicName: string; displayName: string; count: number }>(),
       };
       agg.order = Math.min(agg.order, phase.order);
       if (phase.reached) agg.reachedCount += 1;
       for (const event of phase.mechanicEvents) {
+        if (GREEN_MECHANIC_NAMES.has(event.mechanicName)) agg.hasGreenMechanic = true;
         // Visible cast markers (Jaws/Slam/Beam/ShckWv/Scream — see
         // cast-markers.ts on the worker) are synthetic orientation markers
         // (every cast), not a fail, so they're excluded from fail-count
@@ -129,6 +142,7 @@ export default async function BatchDetailPage(
         )
           continue;
         const entry = agg.mechanics.get(event.mechanicName) ?? {
+          mechanicName: event.mechanicName,
           displayName: translateMechanicName(
             encounter.bossId,
             event.mechanicName,
@@ -144,13 +158,32 @@ export default async function BatchDetailPage(
   }
   const batchPhaseStats: BatchPhaseStat[] = [...phaseAgg.values()]
     .sort((a, b) => a.order - b.order)
-    .map((agg) => ({
-      name: agg.name,
-      order: agg.order,
-      reached: agg.reachedCount,
-      total: attempts,
-      mechanics: [...agg.mechanics.values()].sort((a, b) => b.count - a.count).slice(0, 3),
-    }));
+    .map((agg) => {
+      // "F.Green" (see the Green-fail stat card above) is pinned first
+      // whenever a phase has it, even if other fails outrank it by count —
+      // Greens are always worth surfacing here, not just whichever mechanic
+      // happened to fail the most. If Greens occurred in this phase but
+      // every attempt in this batch resolved them successfully, still show
+      // a 0-count chip rather than silently omitting Greens.
+      const sorted = [...agg.mechanics.values()].sort((a, b) => b.count - a.count);
+      const green = sorted.find((m) => m.mechanicName === "F.Green") ??
+        (agg.hasGreenMechanic
+          ? {
+              mechanicName: "F.Green",
+              displayName: translateMechanicName(batchBossId, "F.Green", "F.Green"),
+              count: 0,
+            }
+          : undefined);
+      const others = sorted.filter((m) => m.mechanicName !== "F.Green");
+      const mechanics = green ? [green, ...others.slice(0, 2)] : others.slice(0, 3);
+      return {
+        name: agg.name,
+        order: agg.order,
+        reached: agg.reachedCount,
+        total: attempts,
+        mechanics,
+      };
+    });
 
   const attemptRows: AttemptRow[] = encounters.map(({ logFile, encounter }, i) => {
     const mainPhases = encounter.phaseResults.filter((p) => isMainPhase(encounter.bossId, p.name));
