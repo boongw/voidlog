@@ -171,7 +171,7 @@ const ATTACK_LABEL: Record<AttackType, string> = {
   beam: "Branding Beam",
   shockwave: "Mordremoth Shockwave",
   scream: "Zhaitans Schrei",
-  green: "Grünkreise (Spawn)",
+  green: "Grünkreise (aufgelöst)",
 };
 
 // Maps a synthetic "*.Cast"/"*.Spawn" mechanicName to its attack glyph type

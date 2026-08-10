@@ -80,12 +80,16 @@ const MECHANIC_NAMES: Record<string, string> = {
   "MagicDisc.H": "Magieentladung — getroffen",
   "S.Green": "Grünkreis — erfolgreich",
   "F.Green": "Grünkreis — verfehlt",
-  // Synthetic marker (not a raw EI mechanic) — when the green stack-circle
-  // hazard actors first become active, from EiTarget.firstAware (see
-  // SPAWN_MARKERS_BY_BOSS in the worker's cast-markers.ts). Only exists for
-  // Jormag/Primordus/Zhaitan — Kralkatorrik/Mordremoth/Soo-Won don't have
-  // this mechanic.
-  "Green.Spawn": "Grünkreise — erscheinen",
+  // Synthetic marker (not a raw EI mechanic) — one per Greens occurrence,
+  // clustered from S.Green/F.Green timestamps (see
+  // CLUSTER_SPAWN_MARKERS_BY_BOSS in the worker's cast-markers.ts). Labeled
+  // "aufgelöst" (resolved), not "erscheinen" (spawn): S.Green/F.Green only
+  // fire when the mechanic resolves pass/fail, ~6.3s after the circles
+  // actually appear (confirmed via EiTarget.firstAware vs. the first
+  // S.Green timestamp on a real log) — the true spawn instant isn't
+  // available from this data source. Only exists for Jormag/Primordus/
+  // Zhaitan — Kralkatorrik/Mordremoth/Soo-Won don't have this mechanic.
+  "Green.Spawn": "Grünkreise — aufgelöst",
 
   // Purification 1
   "Light.H": "Blitz Jormags — getroffen",
@@ -172,8 +176,6 @@ const NOISE_MECHANIC_NAMES = new Set([
   "Orb Push",
   "Res",
   "Got up",
-  "Red.B",
-  "Spread.B",
   "Spread.H",
   "J.Breath.H",
   "J.Grasp.H",

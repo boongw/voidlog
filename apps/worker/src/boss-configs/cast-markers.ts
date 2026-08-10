@@ -108,35 +108,45 @@ export const CAST_TARGET_GROUPS_BY_BOSS: Record<string, CastTargetGroup[]> = {
 export const EXCLUDED_ROTATION_SKILL_IDS = new Set([-2]);
 
 /**
- * Hazard-actor "spawn" markers: some mechanics (e.g. Harvest Temple's
- * "Greens" stack circles) aren't a boss ability cast at all — EI represents
- * each one as its own fake target instead, with no cast log of its own.
- * `EiTarget.firstAware` (when that target first became active) is the only
- * available "when did this appear" timestamp, so these are matched by
- * `EiTarget.name` rather than `id` like the cast markers above.
+ * Hazard-occurrence markers for mechanics that aren't a boss ability cast at
+ * all (e.g. Harvest Temple's "Greens" stack circles) — synthesized from the
+ * timing of an existing raw EI mechanic instead, by clustering its
+ * `mechanicsData` points that land within `clusterGapMs` of each other into
+ * one marker per real-world occurrence.
  *
- * This is safe here specifically because these names are synthesized by
- * GW2EIEvtcParser's own boss-module source, not pulled from the recording
- * client's localized game strings — confirmed on a real German-client
- * Harvest Temple log where nearby real NPCs *were* localized ("Riese der
- * Leere") but the green-circle actors stayed English ("Jormag Green E",
- * "Primordus Green NW", "Zhaitan Green NW/NE/S"). Only Jormag, Primordus,
- * and Zhaitan have this mechanic — confirmed absent for Kralkatorrik/
- * Mordremoth/Soo-Won on a log that reached past all of them.
+ * This exists because the more obvious source — `EiTarget.firstAware` on
+ * the fake "Jormag Green E"-style actors EI represents each stack circle
+ * as — only reflects the *first* time that fake actor is used. Confirmed on
+ * a real log: Primordus's Greens fired 4 times total (raw S.Green/F.Green
+ * timestamps ~40-55s apart), reusing the same 3 actors instead of creating
+ * new ones each time, so `firstAware` only ever produced 1-2 markers total
+ * — most occurrences were silently missing from the timeline. The
+ * S.Green/F.Green mechanic itself fires every time (that's what resolves
+ * each stack attempt pass/fail), so clustering *those* timestamps instead
+ * captures every occurrence. `clusterGapMs` just needs to be comfortably
+ * between "actors resolving the same wave" (observed ~0-2ms apart) and
+ * "distinct waves" (observed 40s+ apart) — not tied to real spawn/resolve
+ * timing, since only the resolution moment is available, not the true
+ * spawn instant.
  */
-export interface SpawnMarker {
-  namePattern: RegExp;
+export interface ClusterSpawnMarker {
+  /** Raw EI mechanicName(s) whose mechanicsData timestamps mark this occurrence. */
+  sourceMechanicNames: string[];
+  clusterGapMs: number;
   mechanicName: string;
   displayName: string;
 }
 
-export const SPAWN_MARKERS_BY_BOSS: Record<string, SpawnMarker[]> = {
-  // Harvest Temple CM (Dragon's End)
+export const CLUSTER_SPAWN_MARKERS_BY_BOSS: Record<string, ClusterSpawnMarker[]> = {
+  // Harvest Temple CM (Dragon's End) — only Jormag, Primordus, and Zhaitan
+  // have this mechanic, confirmed absent for Kralkatorrik/Mordremoth/
+  // Soo-Won on a log that reached past all of them.
   "43488": [
     {
-      namePattern: /Green/,
+      sourceMechanicNames: ["S.Green", "F.Green"],
+      clusterGapMs: 3000,
       mechanicName: "Green.Spawn",
-      displayName: "Green Circles (Spawn)",
+      displayName: "Green Circles",
     },
   ],
 };
