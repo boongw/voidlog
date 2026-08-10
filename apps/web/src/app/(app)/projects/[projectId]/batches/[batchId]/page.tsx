@@ -188,6 +188,7 @@ export default async function BatchDetailPage(
             timeMs: m.timeMs,
             name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
             mechanicName: m.mechanicName,
+            player: m.playerResult?.characterName ?? null,
           })),
       ),
       phases: mainPhases.map((p) => {

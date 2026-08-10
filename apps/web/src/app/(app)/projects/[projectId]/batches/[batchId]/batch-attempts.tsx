@@ -18,7 +18,7 @@ export interface AttemptRow {
   durationMs: number;
   segments: { name: string; order: number; leftPct: number; widthPct: number }[];
   deaths: { timeMs: number; player: string | null }[];
-  mechanics: { timeMs: number; name: string; mechanicName: string }[];
+  mechanics: { timeMs: number; name: string; mechanicName: string; player: string | null }[];
   phases: {
     name: string;
     order: number;
@@ -48,54 +48,62 @@ interface MarkerCluster {
   mechanicName: string;
   name: string;
   count: number;
+  /** Deduped, first-seen order — empty for mechanics with no attributable player (e.g. boss casts). */
+  players: string[];
 }
 
 // Collapses same-mechanic markers that land within MARKER_CLUSTER_GAP_MS of
 // each other into one marker (positioned at the earliest one in the group)
 // — Spread/Red Bait especially fire once per player and quickly pile up
 // into unreadable stacks of overlapping icons at this timeline scale.
-// Different mechanics never merge, even at the same timestamp.
+// Different mechanics never merge, even at the same timestamp. Player names
+// are collected per cluster (not just per event) so the tooltip can show
+// who got hit — generic on purpose, so any future per-player mechanic gets
+// this for free once it's routed through here.
 function clusterMarkers(
-  events: { timeMs: number; name: string; mechanicName: string }[],
+  events: { timeMs: number; name: string; mechanicName: string; player?: string | null }[],
 ): MarkerCluster[] {
-  const byMechanic = new Map<string, { timeMs: number; name: string }[]>();
+  const byMechanic = new Map<string, typeof events>();
   for (const e of events) {
     const list = byMechanic.get(e.mechanicName) ?? [];
     list.push(e);
     byMechanic.set(e.mechanicName, list);
   }
 
+  function pushCluster(clusters: MarkerCluster[], mechanicName: string, group: typeof events) {
+    const players: string[] = [];
+    for (const e of group) {
+      if (e.player && !players.includes(e.player)) players.push(e.player);
+    }
+    clusters.push({
+      timeMs: group[0]!.timeMs,
+      mechanicName,
+      name: group[0]!.name,
+      count: group.length,
+      players,
+    });
+  }
+
   const clusters: MarkerCluster[] = [];
   for (const [mechanicName, list] of byMechanic) {
     const sorted = [...list].sort((a, b) => a.timeMs - b.timeMs);
-    let current: { timeMs: number; name: string }[] = [];
+    let current: typeof events = [];
     for (const e of sorted) {
       const last = current.at(-1);
       if (last && e.timeMs - last.timeMs > MARKER_CLUSTER_GAP_MS) {
-        clusters.push({
-          timeMs: current[0]!.timeMs,
-          mechanicName,
-          name: current[0]!.name,
-          count: current.length,
-        });
+        pushCluster(clusters, mechanicName, current);
         current = [];
       }
       current.push(e);
     }
-    if (current.length > 0) {
-      clusters.push({
-        timeMs: current[0]!.timeMs,
-        mechanicName,
-        name: current[0]!.name,
-        count: current.length,
-      });
-    }
+    if (current.length > 0) pushCluster(clusters, mechanicName, current);
   }
   return clusters;
 }
 
 function markerTooltip(cluster: MarkerCluster): string {
-  return cluster.count > 1 ? `${cluster.name} (${cluster.count}×)` : cluster.name;
+  const base = cluster.count > 1 ? `${cluster.name} (${cluster.count}×)` : cluster.name;
+  return cluster.players.length > 0 ? `${base} — ${cluster.players.join(", ")}` : base;
 }
 
 // Normal Mode and Challenge Mode share the same bossId (see EncounterResult
