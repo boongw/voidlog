@@ -56,7 +56,7 @@ function ModeBadge({ isCM }: { isCM: boolean }) {
   );
 }
 
-type AttackType = "jaws" | "slam" | "beam" | "shockwave" | "scream" | "green";
+type AttackType = "jaws" | "slam" | "beam" | "shockwave" | "scream" | "green" | "spreadBait";
 
 // The glyphs below (attackType/ATTACK_LABEL too) are inherently specific
 // to Harvest Temple CM's curated cast markers (see cast-markers.ts on the
@@ -70,6 +70,9 @@ const HARVEST_TEMPLE_BOSS_ID = "43488";
 // glyphs do — it gets its own fixed, mechanic-appropriate green instead.
 const GREEN_SPAWN_COLOR = "#4CA64C";
 
+// Matches the game's own yellow "orange/gold circle" bait indicator.
+const SPREAD_BAIT_COLOR = "#E8B84C";
+
 const ATTACK_COLOR: Record<AttackType, string> = {
   jaws: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
   slam: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
@@ -77,6 +80,7 @@ const ATTACK_COLOR: Record<AttackType, string> = {
   shockwave: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Mordremoth"),
   scream: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Zhaitan"),
   green: GREEN_SPAWN_COLOR,
+  spreadBait: SPREAD_BAIT_COLOR,
 };
 
 // One small glyph per boss attack, drawn in the dragon's own color — sits
@@ -154,13 +158,22 @@ function AttackGlyph({ type, flipped }: { type: AttackType; flipped?: boolean })
       </svg>
     );
   }
-  // "green": three small circles — the Greens hazard always spawns as
-  // multiple simultaneous stack points, unlike the other single-target casts.
+  if (type === "green") {
+    // Three small circles — the Greens hazard always spawns as multiple
+    // simultaneous stack points, unlike the other single-target casts.
+    return (
+      <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
+        <circle cx="3" cy="8.5" r="1.6" fill={color} />
+        <circle cx="6" cy="3.5" r="1.6" fill={color} />
+        <circle cx="9" cy="8.5" r="1.6" fill={color} />
+      </svg>
+    );
+  }
+  // "spreadBait": a plain outlined circle — matches the game's own yellow
+  // bait-circle indicator for Spread Bait.
   return (
     <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
-      <circle cx="3" cy="8.5" r="1.6" fill={color} />
-      <circle cx="6" cy="3.5" r="1.6" fill={color} />
-      <circle cx="9" cy="8.5" r="1.6" fill={color} />
+      <circle cx="6" cy="6" r="4" fill="none" stroke={color} strokeWidth="1.1" />
     </svg>
   );
 }
@@ -172,11 +185,13 @@ const ATTACK_LABEL: Record<AttackType, string> = {
   shockwave: "Mordremoth Shockwave",
   scream: "Zhaitans Schrei",
   green: "Grünkreise (aufgelöst)",
+  spreadBait: "Spread Bait",
 };
 
-// Maps a synthetic "*.Cast"/"*.Spawn" mechanicName to its attack glyph type
-// — the single place that connects worker-side cast-markers.ts to the icon
-// above.
+// Maps a synthetic "*.Cast"/"*.Spawn" mechanicName (or a raw EI mechanic
+// treated as a boss-attack marker) to its attack glyph type — the single
+// place that connects worker-side cast-markers.ts / boss curation to the
+// icon above.
 function attackType(mechanicName: string): AttackType | null {
   if (mechanicName === "Jaws.Cast") return "jaws";
   if (mechanicName === "Slam.Cast") return "slam";
@@ -184,6 +199,7 @@ function attackType(mechanicName: string): AttackType | null {
   if (mechanicName === "ShckWv.Cast") return "shockwave";
   if (mechanicName === "Scream.Cast") return "scream";
   if (mechanicName === "Green.Spawn") return "green";
+  if (mechanicName === "Spread.B") return "spreadBait";
   return null;
 }
 

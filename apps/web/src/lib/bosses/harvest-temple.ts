@@ -196,6 +196,7 @@ const VISIBLE_CAST_MARKERS = new Set([
   "ShckWv.Cast",
   "Scream.Cast",
   "Green.Spawn",
+  "Spread.B",
 ]);
 
 export const harvestTemple: BossCuration = {
