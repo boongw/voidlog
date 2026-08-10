@@ -175,14 +175,17 @@ const MECHANIC_NAMES: Record<string, string> = {
 const NOISE_MECHANIC_NAMES = new Set([
   "Orb Push",
   "Res",
+  "Resp",
   "Got up",
   "Spread.H",
   "J.Breath.H",
   "J.Grasp.H",
-  "VoidExp.H",
+  "VoidExp.H", // Last Laugh
+  "VoidExp.Champ.H", // Last Laugh Champions
   "NopeRopes.Achiv.L",
   "NopeRopes.Achiv.K",
   "S.Green",
+  "NigEpoch.H" // Orb Aura
 ]);
 
 // The handful of boss-cast markers (see cast-markers.ts on the worker)
