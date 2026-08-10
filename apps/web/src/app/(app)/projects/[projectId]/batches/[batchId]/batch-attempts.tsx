@@ -370,6 +370,22 @@ function failMechanicIcon(mechanicName: string, options?: { distinguishGreen?: b
   return <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />;
 }
 
+// One filter-table cell's worth of toggle chips — used for both the
+// "Boss-Angriffe" and "Mechaniken" columns. An em-dash placeholder keeps
+// empty cells from collapsing to nothing, so every row's two columns stay
+// visually aligned like a pricing table's feature grid.
+function MechanicCell({ children, empty }: { children: ReactNode; empty: boolean }) {
+  return (
+    <Table.Cell className="border-line-soft border-l">
+      {empty ? (
+        <span className="text-muted text-xs">—</span>
+      ) : (
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5">{children}</div>
+      )}
+    </Table.Cell>
+  );
+}
+
 function MechanicFilterAccordion({
   bossId,
   phaseGroups,
@@ -398,113 +414,144 @@ function MechanicFilterAccordion({
         Mechanik-Filter
       </summary>
       <div className="mt-3 hidden flex-col gap-3 group-open:flex">
-        <div className="flex items-center gap-3.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              onDeselectAll();
-            }}
-            className="text-accent text-xs font-semibold hover:underline"
-          >
-            Alle einblenden
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              onSelectAll();
-            }}
-            className="text-accent text-xs font-semibold hover:underline"
-          >
-            Alle ausblenden
-          </button>
-        </div>
-        {phaseGroups.map((group) => (
-          <div key={group.name}>
-            <div
-              className="mb-1.5 text-[11px] font-semibold"
-              style={{ color: phaseColor(bossId, group.order, group.name) }}
-            >
-              {group.name}
-            </div>
-            <div className="flex flex-wrap gap-x-3.5 gap-y-1.5">
-              {group.attacks.map(([mechanicName, type]) => (
-                <MechanicToggle
-                  key={mechanicName}
-                  mechanicName={mechanicName}
-                  label={ATTACK_LABEL[type]}
-                  icon={<AttackGlyph type={type} />}
-                  isHidden={hidden.has(mechanicName)}
-                  onToggle={onToggle}
-                />
-              ))}
-              {group.fails.map(([mechanicName, label]) => (
-                <MechanicToggle
-                  key={mechanicName}
-                  mechanicName={mechanicName}
-                  label={label}
-                  icon={failMechanicIcon(mechanicName)}
-                  isHidden={hidden.has(mechanicName)}
-                  onToggle={onToggle}
-                />
-              ))}
-              {group.attacks.length === 0 && group.fails.length === 0 ? (
-                <span className="text-muted text-xs">Keine Mechaniken erfasst.</span>
-              ) : null}
-            </div>
-          </div>
-        ))}
-        {multiPhaseAttacks.length > 0 || multiPhaseFails.length > 0 ? (
-          <div>
-            <div className="text-muted mb-1.5 text-[11px] font-semibold uppercase tracking-wide">
-              Mehrere Phasen
-            </div>
-            <div className="flex flex-wrap gap-x-3.5 gap-y-1.5">
-              {multiPhaseAttacks.map(([mechanicName, type]) => (
-                <MechanicToggle
-                  key={mechanicName}
-                  mechanicName={mechanicName}
-                  label={ATTACK_LABEL[type]}
-                  icon={<AttackGlyph type={type} />}
-                  isHidden={hidden.has(mechanicName)}
-                  onToggle={onToggle}
-                />
-              ))}
-              {multiPhaseFails.map(([mechanicName, label]) => (
-                <MechanicToggle
-                  key={mechanicName}
-                  mechanicName={mechanicName}
-                  label={label}
-                  icon={failMechanicIcon(mechanicName)}
-                  isHidden={hidden.has(mechanicName)}
-                  onToggle={onToggle}
-                />
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <div>
-          <div className="text-muted mb-1.5 text-[11px] font-semibold uppercase tracking-wide">
-            Weitere
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-            <span className="text-muted-strong flex items-center gap-1.5 text-xs">
-              <Cross2Icon className="text-danger h-3.5 w-3.5" />
-              Tod
-            </span>
-            {otherEntries.map(([mechanicName, label]) => (
-              <MechanicToggle
-                key={mechanicName}
-                mechanicName={mechanicName}
-                label={label}
-                icon={failMechanicIcon(mechanicName)}
-                isHidden={hidden.has(mechanicName)}
-                onToggle={onToggle}
-              />
+        <Table.Root variant="surface" className="border-line bg-surface-2 border">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>Phase</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell className="border-line-soft border-l">
+                Boss-Angriffe
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell className="border-line-soft border-l">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Mechaniken</span>
+                  {/* These only ever touch the Mechaniken column's toggles
+                      (see selectAllMechanics/deselectAllMechanics) — living
+                      in this header cell instead of a separate row makes
+                      that scope visually obvious. */}
+                  <span className="flex items-center gap-2.5 normal-case">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onDeselectAll();
+                      }}
+                      className="text-accent text-[11px] font-semibold hover:underline"
+                    >
+                      Alle einblenden
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onSelectAll();
+                      }}
+                      className="text-accent text-[11px] font-semibold hover:underline"
+                    >
+                      Alle ausblenden
+                    </button>
+                  </span>
+                </div>
+              </Table.ColumnHeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {phaseGroups.map((group) => (
+              <Table.Row key={group.name}>
+                <Table.Cell>
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: readableHeadingColor(phaseColor(bossId, group.order, group.name)) }}
+                  >
+                    {group.name}
+                  </span>
+                </Table.Cell>
+                <MechanicCell empty={group.attacks.length === 0}>
+                  {group.attacks.map(([mechanicName, type]) => (
+                    <MechanicToggle
+                      key={mechanicName}
+                      mechanicName={mechanicName}
+                      label={ATTACK_LABEL[type]}
+                      icon={<AttackGlyph type={type} />}
+                      isHidden={hidden.has(mechanicName)}
+                      onToggle={onToggle}
+                    />
+                  ))}
+                </MechanicCell>
+                <MechanicCell empty={group.fails.length === 0}>
+                  {group.fails.map(([mechanicName, label]) => (
+                    <MechanicToggle
+                      key={mechanicName}
+                      mechanicName={mechanicName}
+                      label={label}
+                      icon={failMechanicIcon(mechanicName)}
+                      isHidden={hidden.has(mechanicName)}
+                      onToggle={onToggle}
+                    />
+                  ))}
+                </MechanicCell>
+              </Table.Row>
             ))}
-          </div>
-        </div>
+            {multiPhaseAttacks.length > 0 || multiPhaseFails.length > 0 ? (
+              <Table.Row>
+                <Table.Cell>
+                  <span className="text-muted-strong text-xs font-semibold uppercase tracking-wide">
+                    Mehrere Phasen
+                  </span>
+                </Table.Cell>
+                <MechanicCell empty={multiPhaseAttacks.length === 0}>
+                  {multiPhaseAttacks.map(([mechanicName, type]) => (
+                    <MechanicToggle
+                      key={mechanicName}
+                      mechanicName={mechanicName}
+                      label={ATTACK_LABEL[type]}
+                      icon={<AttackGlyph type={type} />}
+                      isHidden={hidden.has(mechanicName)}
+                      onToggle={onToggle}
+                    />
+                  ))}
+                </MechanicCell>
+                <MechanicCell empty={multiPhaseFails.length === 0}>
+                  {multiPhaseFails.map(([mechanicName, label]) => (
+                    <MechanicToggle
+                      key={mechanicName}
+                      mechanicName={mechanicName}
+                      label={label}
+                      icon={failMechanicIcon(mechanicName)}
+                      isHidden={hidden.has(mechanicName)}
+                      onToggle={onToggle}
+                    />
+                  ))}
+                </MechanicCell>
+              </Table.Row>
+            ) : null}
+            <Table.Row>
+              <Table.Cell>
+                <span className="text-muted-strong text-xs font-semibold uppercase tracking-wide">
+                  Weitere
+                </span>
+              </Table.Cell>
+              <MechanicCell empty>{null}</MechanicCell>
+              <Table.Cell className="border-line-soft border-l">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className="text-muted-strong flex items-center gap-1.5 text-xs">
+                    <Cross2Icon className="text-danger h-3.5 w-3.5" />
+                    Tod
+                  </span>
+                  {otherEntries.map(([mechanicName, label]) => (
+                    <MechanicToggle
+                      key={mechanicName}
+                      mechanicName={mechanicName}
+                      label={label}
+                      icon={failMechanicIcon(mechanicName)}
+                      isHidden={hidden.has(mechanicName)}
+                      onToggle={onToggle}
+                    />
+                  ))}
+                </div>
+              </Table.Cell>
+            </Table.Row>
+          </Table.Body>
+        </Table.Root>
       </div>
     </details>
   );
@@ -539,26 +586,40 @@ export function BatchAttempts({
     });
   }
 
-  // Every mechanicName that can show up anywhere in the filter accordion
-  // (phase groups, "Mehrere Phasen", "Weitere") — all three sections are
-  // built from this same underlying data, so collecting it once here covers
-  // all of them for the select-all/deselect-all controls.
-  const allFilterMechanicNames = useMemo(() => {
+  // Every fail-mechanic name that can show up anywhere in the filter
+  // accordion (phase groups, "Mehrere Phasen", "Weitere") — all three
+  // sections are built from this same underlying data, so collecting it
+  // once here covers all of them for the select-all/deselect-all controls.
+  // Boss-attack markers (attackType() recognizes them) are excluded: those
+  // have their own "Boss-Angriffe" sub-row per phase group now and aren't
+  // meant to be toggled in bulk by these two buttons.
+  const allFailMechanicNames = useMemo(() => {
     const names = new Set<string>();
     for (const a of attempts) {
       for (const phase of a.phases) {
-        for (const m of phase.mechanics) names.add(m.mechanicName);
+        for (const m of phase.mechanics) {
+          if (attackType(m.mechanicName)) continue;
+          names.add(m.mechanicName);
+        }
       }
     }
     return names;
   }, [attempts]);
 
   function selectAllMechanics() {
-    setHiddenMechanics(new Set(allFilterMechanicNames));
+    setHiddenMechanics((prev) => {
+      const next = new Set(prev);
+      for (const name of allFailMechanicNames) next.add(name);
+      return next;
+    });
   }
 
   function deselectAllMechanics() {
-    setHiddenMechanics(new Set());
+    setHiddenMechanics((prev) => {
+      const next = new Set(prev);
+      for (const name of allFailMechanicNames) next.delete(name);
+      return next;
+    });
   }
 
   // Distinct mechanics actually present per main phase, used to build the
