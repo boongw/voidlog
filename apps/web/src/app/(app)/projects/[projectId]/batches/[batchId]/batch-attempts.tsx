@@ -41,6 +41,63 @@ function formatDuration(ms: number): string {
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
 }
 
+const MARKER_CLUSTER_GAP_MS = 500;
+
+interface MarkerCluster {
+  timeMs: number;
+  mechanicName: string;
+  name: string;
+  count: number;
+}
+
+// Collapses same-mechanic markers that land within MARKER_CLUSTER_GAP_MS of
+// each other into one marker (positioned at the earliest one in the group)
+// — Spread/Red Bait especially fire once per player and quickly pile up
+// into unreadable stacks of overlapping icons at this timeline scale.
+// Different mechanics never merge, even at the same timestamp.
+function clusterMarkers(
+  events: { timeMs: number; name: string; mechanicName: string }[],
+): MarkerCluster[] {
+  const byMechanic = new Map<string, { timeMs: number; name: string }[]>();
+  for (const e of events) {
+    const list = byMechanic.get(e.mechanicName) ?? [];
+    list.push(e);
+    byMechanic.set(e.mechanicName, list);
+  }
+
+  const clusters: MarkerCluster[] = [];
+  for (const [mechanicName, list] of byMechanic) {
+    const sorted = [...list].sort((a, b) => a.timeMs - b.timeMs);
+    let current: { timeMs: number; name: string }[] = [];
+    for (const e of sorted) {
+      const last = current.at(-1);
+      if (last && e.timeMs - last.timeMs > MARKER_CLUSTER_GAP_MS) {
+        clusters.push({
+          timeMs: current[0]!.timeMs,
+          mechanicName,
+          name: current[0]!.name,
+          count: current.length,
+        });
+        current = [];
+      }
+      current.push(e);
+    }
+    if (current.length > 0) {
+      clusters.push({
+        timeMs: current[0]!.timeMs,
+        mechanicName,
+        name: current[0]!.name,
+        count: current.length,
+      });
+    }
+  }
+  return clusters;
+}
+
+function markerTooltip(cluster: MarkerCluster): string {
+  return cluster.count > 1 ? `${cluster.name} (${cluster.count}×)` : cluster.name;
+}
+
 // Normal Mode and Challenge Mode share the same bossId (see EncounterResult
 // .isCM) — this is the only visual signal that an attempt was accidentally
 // uploaded in the wrong mode.
@@ -684,7 +741,23 @@ export function BatchAttempts({
         <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
           {attempts.map((a) => {
             const isOpen = expanded === a.n;
-            const beamCasts = a.mechanics.filter((m) => m.mechanicName === "Beam.Cast");
+            const visibleMechanics = a.mechanics.filter((m) => !hiddenMechanics.has(m.mechanicName));
+            const highFreqClusters = clusterMarkers(
+              visibleMechanics.filter((m) => {
+                const type = attackType(m.mechanicName);
+                return type && HIGH_FREQUENCY_ATTACK_TYPES.has(type);
+              }),
+            );
+            const attackClusters = clusterMarkers(
+              visibleMechanics.filter((m) => {
+                const type = attackType(m.mechanicName);
+                return type && !HIGH_FREQUENCY_ATTACK_TYPES.has(type);
+              }),
+            );
+            const beamClusters = attackClusters.filter((c) => c.mechanicName === "Beam.Cast");
+            const failClusters = clusterMarkers(
+              visibleMechanics.filter((m) => !isVisibleCastMarker(a.bossId, m.mechanicName)),
+            );
             return (
               <div key={a.logFileId}>
                 <button
@@ -712,18 +785,19 @@ export function BatchAttempts({
                   >
                     {/* Lane 0 (test): Greens/baits fire far more often than the
                         named boss casts below and were crowding/overlapping
-                        that lane — split into their own row above it. */}
+                        that lane — split into their own row above it. Markers
+                        of the same mechanic within 500ms collapse into one
+                        (tooltip shows the count) since these still pile up
+                        heavily per player even in their own lane. */}
                     <span className="relative h-4 w-full">
-                      {a.mechanics.map((m, i) => {
-                        const type = attackType(m.mechanicName);
-                        if (!type || !HIGH_FREQUENCY_ATTACK_TYPES.has(type)) return null;
-                        if (hiddenMechanics.has(m.mechanicName)) return null;
+                      {highFreqClusters.map((c, i) => {
+                        const type = attackType(c.mechanicName)!;
                         return (
                           <span
                             key={`bait-${i}`}
-                            title={m.name}
+                            title={markerTooltip(c)}
                             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                            style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
                           >
                             <AttackGlyph type={type} />
                           </span>
@@ -732,20 +806,20 @@ export function BatchAttempts({
                     </span>
                     {/* Lane 1: boss attacks — same icon size as the fail lane below,
                         positioned above the bar so the category reads from position
-                        alone, not just from the glyph. */}
+                        alone, not just from the glyph. Also clustered (see Lane 0). */}
                     <span className="relative h-4 w-full">
-                      {a.mechanics.map((m, i) => {
-                        const type = attackType(m.mechanicName);
-                        if (!type || HIGH_FREQUENCY_ATTACK_TYPES.has(type)) return null;
-                        if (hiddenMechanics.has(m.mechanicName)) return null;
+                      {attackClusters.map((c, i) => {
+                        const type = attackType(c.mechanicName)!;
                         const flipped =
-                          type === "beam" ? beamCasts.indexOf(m) % 2 === 1 : undefined;
+                          c.mechanicName === "Beam.Cast"
+                            ? beamClusters.indexOf(c) % 2 === 1
+                            : undefined;
                         return (
                           <span
                             key={`attack-${i}`}
-                            title={m.name}
+                            title={markerTooltip(c)}
                             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
+                            style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
                           >
                             <AttackGlyph type={type} flipped={flipped} />
                           </span>
@@ -779,22 +853,16 @@ export function BatchAttempts({
                           <Cross2Icon className="text-danger h-3.5 w-3.5" />
                         </span>
                       ))}
-                      {a.mechanics
-                        .filter(
-                          (m) =>
-                            !isVisibleCastMarker(a.bossId, m.mechanicName) &&
-                            !hiddenMechanics.has(m.mechanicName),
-                        )
-                        .map((m, i) => (
-                          <span
-                            key={`mech-${i}`}
-                            title={m.name}
-                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                            style={{ left: `${(m.timeMs / a.durationMs) * 100}%` }}
-                          >
-                            {failMechanicIcon(m.mechanicName)}
-                          </span>
-                        ))}
+                      {failClusters.map((c, i) => (
+                        <span
+                          key={`mech-${i}`}
+                          title={markerTooltip(c)}
+                          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                          style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                        >
+                          {failMechanicIcon(c.mechanicName)}
+                        </span>
+                      ))}
                     </span>
                   </span>
                   <span className="text-muted-strong text-right text-xs">
