@@ -56,7 +56,15 @@ function ModeBadge({ isCM }: { isCM: boolean }) {
   );
 }
 
-type AttackType = "jaws" | "slam" | "beam" | "shockwave" | "scream" | "green" | "spreadBait";
+type AttackType =
+  | "jaws"
+  | "slam"
+  | "beam"
+  | "shockwave"
+  | "scream"
+  | "green"
+  | "spreadBait"
+  | "redBait";
 
 // The glyphs below (attackType/ATTACK_LABEL too) are inherently specific
 // to Harvest Temple CM's curated cast markers (see cast-markers.ts on the
@@ -72,6 +80,7 @@ const GREEN_SPAWN_COLOR = "#4CA64C";
 
 // Matches the game's own yellow "orange/gold circle" bait indicator.
 const SPREAD_BAIT_COLOR = "#E8B84C";
+const RED_BAIT_COLOR = "#E0453D";
 
 const ATTACK_COLOR: Record<AttackType, string> = {
   jaws: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
@@ -81,6 +90,7 @@ const ATTACK_COLOR: Record<AttackType, string> = {
   scream: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Zhaitan"),
   green: GREEN_SPAWN_COLOR,
   spreadBait: SPREAD_BAIT_COLOR,
+  redBait: RED_BAIT_COLOR,
 };
 
 // One small glyph per boss attack, drawn in the dragon's own color — sits
@@ -169,8 +179,8 @@ function AttackGlyph({ type, flipped }: { type: AttackType; flipped?: boolean })
       </svg>
     );
   }
-  // "spreadBait": a plain outlined circle — matches the game's own yellow
-  // bait-circle indicator for Spread Bait.
+  // "spreadBait"/"redBait": a plain outlined circle — matches the game's
+  // own bait-circle indicator, colored per bait type.
   return (
     <svg viewBox="0 0 12 12" width="13" height="13" className="opacity-70">
       <circle cx="6" cy="6" r="4" fill="none" stroke={color} strokeWidth="1.1" />
@@ -186,6 +196,7 @@ const ATTACK_LABEL: Record<AttackType, string> = {
   scream: "Zhaitans Schrei",
   green: "Grünkreise (aufgelöst)",
   spreadBait: "Spread Bait",
+  redBait: "Red Bait",
 };
 
 // Maps a synthetic "*.Cast"/"*.Spawn" mechanicName (or a raw EI mechanic
@@ -200,6 +211,7 @@ function attackType(mechanicName: string): AttackType | null {
   if (mechanicName === "Scream.Cast") return "scream";
   if (mechanicName === "Green.Spawn") return "green";
   if (mechanicName === "Spread.B") return "spreadBait";
+  if (mechanicName === "Red.B") return "redBait";
   return null;
 }
 
