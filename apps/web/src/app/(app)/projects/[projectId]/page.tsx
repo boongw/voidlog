@@ -49,8 +49,6 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         .filter((e): e is NonNullable<typeof e> => e !== null);
 
       const kills = encounters.filter((e) => e.success).length;
-      const successRate =
-        encounters.length > 0 ? Math.round((kills / encounters.length) * 100) : null;
 
       // "F.Green" is HTCM's raw EI mechanic code for a failed Green stack
       // (see harvest-temple.ts) — hardcoded like the same stat on the batch
@@ -110,7 +108,6 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         occurredAt,
         attempts: encounters.length,
         kills,
-        successRate,
         greenFailedCount,
         greenFailRate,
         shockwaveHitCount,
@@ -178,7 +175,6 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             <Table.ColumnHeaderCell>Raid-Abend</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Versuche</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Erfolgsquote</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Green verfehlt</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Weiteste Phase</Table.ColumnHeaderCell>
@@ -197,9 +193,6 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
               </Table.Cell>
               <Table.Cell className="text-muted-strong">{batch.attempts}</Table.Cell>
               <Table.Cell className="text-muted-strong">{batch.kills}</Table.Cell>
-              <Table.Cell className="text-warning font-semibold">
-                {batch.successRate === null ? "—" : `${batch.successRate}%`}
-              </Table.Cell>
               <Table.Cell className="text-danger font-semibold">
                 {batch.greenFailRate === null ? "—" : `${batch.greenFailRate}%`}
               </Table.Cell>
@@ -221,7 +214,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
           ))}
           {batches.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={7} className="text-muted">
+              <Table.Cell colSpan={6} className="text-muted">
                 Noch keine Batches.
               </Table.Cell>
             </Table.Row>
