@@ -73,6 +73,13 @@ export default async function BatchDetailPage(
       p.mechanicEvents.some((m) => m.mechanicName === "F.Green"),
     ),
   ).length;
+  // "ShckWv.H" is Mordremoth's raw EI code for a Schockwelle hit — same
+  // hardcoded-stat-card treatment as the Green-fail count above.
+  const shockwaveHitCount = encounters.filter((e) =>
+    e.encounter.phaseResults.some((p) =>
+      p.mechanicEvents.some((m) => m.mechanicName === "ShckWv.H"),
+    ),
+  ).length;
 
   // Assumes one boss per batch (true for every real batch so far) — used
   // for the aggregate phase cards and the client-side timeline component,
@@ -270,7 +277,7 @@ export default async function BatchDetailPage(
         <DeleteBatchButton projectId={projectId} batchId={batchId} batchLabel={batch.label} />
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3.5 lg:grid-cols-5">
         <Card size="2" className="border-line bg-surface border">
           <div className="text-muted mb-1.5 text-[11px] font-medium uppercase tracking-wide">
             Versuche gesamt
@@ -296,6 +303,17 @@ export default async function BatchDetailPage(
             {greenFailedCount}{" "}
             <span className="text-muted text-sm font-medium">
               ({attempts > 0 ? Math.round((greenFailedCount / attempts) * 100) : 0}%)
+            </span>
+          </div>
+        </Card>
+        <Card size="2" className="border-line bg-surface border">
+          <div className="text-muted mb-1.5 text-[11px] font-medium uppercase tracking-wide">
+            Schockwellen getroffen
+          </div>
+          <div className="font-heading text-danger text-xl font-bold">
+            {shockwaveHitCount}{" "}
+            <span className="text-muted text-sm font-medium">
+              ({attempts > 0 ? Math.round((shockwaveHitCount / attempts) * 100) : 0}%)
             </span>
           </div>
         </Card>
