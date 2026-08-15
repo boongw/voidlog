@@ -272,7 +272,7 @@ const ATTACK_LABEL: Record<AttackType, string> = {
   beam: "Branding Beam",
   shockwave: "Mordremoth Shockwave",
   scream: "Zhaitans Schrei",
-  green: "Grünkreise (aufgelöst)",
+  green: "Greens (aufgelöst)",
   spreadBait: "Spread Bait",
   redBait: "Red Bait",
 };

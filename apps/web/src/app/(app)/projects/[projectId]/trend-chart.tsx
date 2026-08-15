@@ -97,7 +97,7 @@ export function GreenFailTrendChart({ points }: { points: TrendPoint[] }) {
       dataKey="greenFail"
       valueOf={(p) => p.greenFailRate ?? 0}
       color="var(--danger)"
-      label="Green-Fail-Rate"
+      label="Greens-Fail-Rate"
       formatValue={(v) => `${Math.round(v)}%`}
     />
   );

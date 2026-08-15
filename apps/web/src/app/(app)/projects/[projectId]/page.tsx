@@ -155,7 +155,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
           </Card>
           <Card size="3" className="border-line bg-surface border">
             <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
-              Green-Fail-Rate · letzte {trendPoints.length} Abende
+              Greens-Fail-Rate · letzte {trendPoints.length} Abende
             </div>
             <GreenFailTrendChart points={trendPoints} />
           </Card>
@@ -175,7 +175,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             <Table.ColumnHeaderCell>Raid-Abend</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Versuche</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Green verfehlt</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Greens verfehlt</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Weiteste Phase</Table.ColumnHeaderCell>
           </Table.Row>
