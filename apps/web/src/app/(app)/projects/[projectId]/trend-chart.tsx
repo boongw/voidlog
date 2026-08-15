@@ -3,6 +3,7 @@ export interface TrendPoint {
   occurredAt: Date;
   avgGroupDps: number;
   greenFailRate: number | null;
+  shockwaveHitRate: number | null;
 }
 
 const WIDTH = 760;
@@ -108,6 +109,19 @@ export function GreenFailTrendChart({ points }: { points: TrendPoint[] }) {
       values={values}
       dates={dates}
       color="var(--danger)"
+      formatValue={(v) => `${Math.round(v)}%`}
+    />
+  );
+}
+
+export function ShockwaveTrendChart({ points }: { points: TrendPoint[] }) {
+  const values = points.map((p) => p.shockwaveHitRate ?? 0);
+  const dates = points.map((p) => p.occurredAt);
+  return (
+    <SingleLineChart
+      values={values}
+      dates={dates}
+      color="var(--warning)"
       formatValue={(v) => `${Math.round(v)}%`}
     />
   );

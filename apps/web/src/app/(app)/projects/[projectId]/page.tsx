@@ -6,7 +6,7 @@ import { isMainPhase } from "@/lib/main-phases";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 import { DeleteProjectButton } from "./delete-project-button";
-import { DpsTrendChart, GreenFailTrendChart } from "./trend-chart";
+import { DpsTrendChart, GreenFailTrendChart, ShockwaveTrendChart } from "./trend-chart";
 
 export default async function ProjectDetailPage(props: PageProps<"/projects/[projectId]">) {
   const { projectId } = await props.params;
@@ -60,6 +60,14 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
       ).length;
       const greenFailRate =
         encounters.length > 0 ? Math.round((greenFailedCount / encounters.length) * 100) : null;
+
+      // "ShckWv.H" is Mordremoth's raw EI code for a Schockwelle hit — same
+      // hardcoded-stat treatment as the Green-fail count above.
+      const shockwaveHitCount = encounters.filter((e) =>
+        e.phaseResults.some((p) => p.mechanicEvents.some((m) => m.mechanicName === "ShckWv.H")),
+      ).length;
+      const shockwaveHitRate =
+        encounters.length > 0 ? Math.round((shockwaveHitCount / encounters.length) * 100) : null;
       const avgGroupDps =
         encounters.length > 0
           ? Math.round(
@@ -105,6 +113,8 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         successRate,
         greenFailedCount,
         greenFailRate,
+        shockwaveHitCount,
+        shockwaveHitRate,
         avgGroupDps,
         furthestPhase,
       };
@@ -139,7 +149,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
       </div>
 
       {trendPoints.length >= 2 ? (
-        <div className="mb-6 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        <div className="mb-6 grid grid-cols-1 gap-3.5 lg:grid-cols-3">
           <Card size="3" className="border-line bg-surface border">
             <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
               Ø Gruppen-DPS · letzte {trendPoints.length} Abende
@@ -151,6 +161,12 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
               Green-Fail-Rate · letzte {trendPoints.length} Abende
             </div>
             <GreenFailTrendChart points={trendPoints} />
+          </Card>
+          <Card size="3" className="border-line bg-surface border">
+            <div className="text-muted-strong mb-3.5 text-xs font-medium uppercase tracking-wide">
+              Schockwellen-Rate · letzte {trendPoints.length} Abende
+            </div>
+            <ShockwaveTrendChart points={trendPoints} />
           </Card>
         </div>
       ) : null}
@@ -164,6 +180,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
             <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Erfolgsquote</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Green verfehlt</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Weiteste Phase</Table.ColumnHeaderCell>
           </Table.Row>
         </Table.Header>
@@ -186,6 +203,9 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
               <Table.Cell className="text-danger font-semibold">
                 {batch.greenFailRate === null ? "—" : `${batch.greenFailRate}%`}
               </Table.Cell>
+              <Table.Cell className="text-warning font-semibold">
+                {batch.shockwaveHitRate === null ? "—" : `${batch.shockwaveHitRate}%`}
+              </Table.Cell>
               <Table.Cell>
                 {batch.furthestPhase ? (
                   <PhaseBadge
@@ -201,7 +221,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
           ))}
           {batches.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={6} className="text-muted">
+              <Table.Cell colSpan={7} className="text-muted">
                 Noch keine Batches.
               </Table.Cell>
             </Table.Row>
