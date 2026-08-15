@@ -4,7 +4,7 @@ import { ChevronRightIcon, Cross2Icon, ExclamationTriangleIcon } from "@radix-ui
 import { Card, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { PhaseBadge, phaseColor } from "@/components/phase-badge";
+import { PhaseBadge, phaseColor, readableHeadingColor } from "@/components/phase-badge";
 import { isVisibleCastMarker } from "@/lib/mechanics";
 import { RemoveLogButton } from "./remove-log-button";
 
@@ -36,17 +36,16 @@ export interface BatchPhaseStat {
   mechanics: { mechanicName: string; displayName: string; count: number }[];
 }
 
-// Some curated phase colors (e.g. Harvest Temple's intermission "Purification"
-// intermission color) are deliberately muted for borders/progress fills but
-// unreadable as heading text on the card's dark background — fall back to a
-// neutral, always-readable color when the phase color itself is too dark,
-// rather than hardcoding a per-boss phase-name check here.
-function readableHeadingColor(hex: string): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance < 0.35 ? "var(--muted-strong)" : hex;
+export interface BatchRosterRow {
+  account: string;
+  characterNames: string;
+  role: string;
+  encounters: number;
+  kills: number;
+  avgDps: number;
+  avgDowns: string;
+  failedMechanics: number;
+  shockwaveHits: number;
 }
 
 function formatDuration(ms: number): string {
@@ -659,12 +658,14 @@ export function BatchAttempts({
   bossId,
   attempts,
   batchPhaseStats,
+  roster,
 }: Readonly<{
   projectId: string;
   batchId: string;
   bossId: string;
   attempts: AttemptRow[];
   batchPhaseStats: BatchPhaseStat[];
+  roster: BatchRosterRow[];
 }>) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [hiddenMechanics, setHiddenMechanics] = useState<Set<string>>(new Set());
@@ -745,6 +746,7 @@ export function BatchAttempts({
       <Tabs.List>
         <Tabs.Trigger value="table">Übersicht</Tabs.Trigger>
         <Tabs.Trigger value="timeline">Details</Tabs.Trigger>
+        <Tabs.Trigger value="roster">Roster</Tabs.Trigger>
       </Tabs.List>
 
       <Tabs.Content value="table" className="mt-4">
@@ -1057,6 +1059,56 @@ export function BatchAttempts({
             <div className="text-muted px-4 py-3 text-sm">Noch keine ausgewerteten Versuche.</div>
           ) : null}
         </div>
+      </Tabs.Content>
+
+      <Tabs.Content value="roster" className="mt-4">
+        <Table.Root variant="surface" className="border-line bg-surface border">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>Spieler</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Rolle</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Teilnahmen</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Ø DPS</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Ø Downs</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Gefailte Mechaniken</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {roster.map((entry) => (
+              <Table.Row key={entry.account}>
+                <Table.Cell>
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-line h-[22px] w-[22px] shrink-0 rounded-full" />
+                    <div>
+                      <div className="text-foreground font-semibold">{entry.account}</div>
+                      <div className="text-muted text-xs">{entry.characterNames}</div>
+                    </div>
+                  </div>
+                </Table.Cell>
+                <Table.Cell className="text-muted-strong">{entry.role}</Table.Cell>
+                <Table.Cell className="text-muted-strong">{entry.encounters}</Table.Cell>
+                <Table.Cell className="text-muted-strong">{entry.kills}</Table.Cell>
+                <Table.Cell className="text-muted-strong">{entry.avgDps}</Table.Cell>
+                <Table.Cell className="text-muted-strong">{entry.avgDowns}</Table.Cell>
+                <Table.Cell className="text-danger font-semibold">
+                  {entry.failedMechanics}
+                </Table.Cell>
+                <Table.Cell className="text-warning font-semibold">
+                  {entry.shockwaveHits}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+            {roster.length === 0 ? (
+              <Table.Row>
+                <Table.Cell colSpan={8} className="text-muted">
+                  Noch keine ausgewerteten Logs.
+                </Table.Cell>
+              </Table.Row>
+            ) : null}
+          </Table.Body>
+        </Table.Root>
       </Tabs.Content>
     </Tabs.Root>
   );

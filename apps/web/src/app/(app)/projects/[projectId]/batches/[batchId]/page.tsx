@@ -1,13 +1,20 @@
 import { LogFileStatus, MechanicCategory, prisma } from "@voidlog/db";
 import { Card } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
+import { BatchSwitcher } from "@/components/batch-switcher";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PhaseBadge } from "@/components/phase-badge";
 import { isMainPhase } from "@/lib/main-phases";
 import { translateMechanicName } from "@/lib/mechanic-names";
 import { isNoiseMechanic, isVisibleCastMarker } from "@/lib/mechanics";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
-import { BatchAttempts, type AttemptRow, type BatchPhaseStat } from "./batch-attempts";
+import {
+  BatchAttempts,
+  type AttemptRow,
+  type BatchPhaseStat,
+  type BatchRosterRow,
+} from "./batch-attempts";
 import { DeleteBatchButton } from "./delete-batch-button";
 import { RemoveLogButton } from "./remove-log-button";
 import { RetryLogButton } from "./retry-log-button";
@@ -24,7 +31,13 @@ export default async function BatchDetailPage(
 ) {
   const { projectId, batchId } = await props.params;
   const session = await requireSession();
-  await requireProjectMembership(projectId, session.user.id);
+  const membership = await requireProjectMembership(projectId, session.user.id);
+
+  const allBatches = await prisma.uploadBatch.findMany({
+    where: { projectId },
+    select: { id: true, label: true },
+    orderBy: { createdAt: "desc" },
+  });
 
   const batch = await prisma.uploadBatch.findUnique({
     where: { id: batchId },
@@ -192,6 +205,77 @@ export default async function BatchDetailPage(
       };
     });
 
+  // Grouped by account, not character name — character names change, the
+  // account handle doesn't (ADR-009), same convention as the project roster.
+  // Reuses the already-fetched encounters/phaseResults/mechanicEvents
+  // instead of a separate query.
+  const rosterByAccount = new Map<
+    string,
+    {
+      characterNames: Set<string>;
+      encounters: number;
+      totalDps: number;
+      kills: number;
+      totalDowns: number;
+      roleCounts: Map<string, number>;
+      failedMechanics: number;
+      shockwaveHits: number;
+    }
+  >();
+  for (const { encounter } of encounters) {
+    for (const p of encounter.playerResults) {
+      const entry = rosterByAccount.get(p.account) ?? {
+        characterNames: new Set<string>(),
+        encounters: 0,
+        totalDps: 0,
+        kills: 0,
+        totalDowns: 0,
+        roleCounts: new Map<string, number>(),
+        failedMechanics: 0,
+        shockwaveHits: 0,
+      };
+      entry.characterNames.add(p.characterName);
+      entry.encounters += 1;
+      entry.totalDps += p.dps;
+      entry.totalDowns += p.downs;
+      if (encounter.success) entry.kills += 1;
+      if (p.role) entry.roleCounts.set(p.role, (entry.roleCounts.get(p.role) ?? 0) + 1);
+      rosterByAccount.set(p.account, entry);
+    }
+    // Same fail definition as the phase-aggregation stats above: everything
+    // except deaths, curated cast markers, and noise mechanics.
+    for (const phase of encounter.phaseResults) {
+      for (const event of phase.mechanicEvents) {
+        if (!event.playerResult) continue;
+        if (
+          event.mechanicName === "Dead" ||
+          isVisibleCastMarker(encounter.bossId, event.mechanicName) ||
+          isNoiseMechanic(encounter.bossId, event.mechanicName)
+        )
+          continue;
+        const entry = rosterByAccount.get(event.playerResult.account);
+        if (!entry) continue;
+        entry.failedMechanics += 1;
+        // "ShckWv.H" is Mordremoth's raw EI code for a Schockwelle hit —
+        // same hardcoded-stat treatment as the batch-wide stat card above.
+        if (event.mechanicName === "ShckWv.H") entry.shockwaveHits += 1;
+      }
+    }
+  }
+  const batchRoster: BatchRosterRow[] = [...rosterByAccount.entries()]
+    .map(([account, entry]) => ({
+      account,
+      characterNames: [...entry.characterNames].join(", "),
+      role: [...entry.roleCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—",
+      encounters: entry.encounters,
+      kills: entry.kills,
+      avgDps: Math.round(entry.totalDps / entry.encounters),
+      avgDowns: (entry.totalDowns / entry.encounters).toFixed(1),
+      failedMechanics: entry.failedMechanics,
+      shockwaveHits: entry.shockwaveHits,
+    }))
+    .sort((a, b) => b.failedMechanics - a.failedMechanics);
+
   const attemptRows: AttemptRow[] = encounters.map(({ logFile, encounter }, i) => {
     const mainPhases = encounter.phaseResults.filter((p) => isMainPhase(encounter.bossId, p.name));
     const reachedMainPhases = mainPhases.filter((p) => p.reached);
@@ -272,8 +356,20 @@ export default async function BatchDetailPage(
 
   return (
     <div className="px-10 py-8">
+      <Breadcrumbs
+        items={[
+          { label: "Projekte", href: "/" },
+          { label: membership.project.name, href: `/projects/${projectId}` },
+          { label: batch.label },
+        ]}
+      />
       <div className="mb-6 flex items-start justify-between">
-        <h1 className="font-heading text-foreground-strong text-2xl font-bold">{batch.label}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-heading text-foreground-strong text-2xl font-bold">{batch.label}</h1>
+          {allBatches.length > 1 ? (
+            <BatchSwitcher projectId={projectId} batches={allBatches} currentBatchId={batchId} />
+          ) : null}
+        </div>
         <DeleteBatchButton projectId={projectId} batchId={batchId} batchLabel={batch.label} />
       </div>
 
@@ -365,6 +461,7 @@ export default async function BatchDetailPage(
         bossId={batchBossId}
         attempts={attemptRows}
         batchPhaseStats={batchPhaseStats}
+        roster={batchRoster}
       />
     </div>
   );

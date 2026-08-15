@@ -1,6 +1,7 @@
 import { prisma } from "@voidlog/db";
 import { Card } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { phaseColor } from "@/components/phase-badge";
 import { translateMechanicName } from "@/lib/mechanic-names";
 import { isNoiseMechanic } from "@/lib/mechanics";
@@ -12,7 +13,7 @@ export default async function LogAnalysisPage(
 ) {
   const { projectId, batchId, logFileId } = await props.params;
   const session = await requireSession();
-  await requireProjectMembership(projectId, session.user.id);
+  const membership = await requireProjectMembership(projectId, session.user.id);
 
   const logFile = await prisma.logFile.findUnique({
     where: { id: logFileId },
@@ -60,6 +61,14 @@ export default async function LogAnalysisPage(
 
   return (
     <div className="max-w-3xl px-10 py-8">
+      <Breadcrumbs
+        items={[
+          { label: "Projekte", href: "/" },
+          { label: membership.project.name, href: `/projects/${projectId}` },
+          { label: logFile.batch.label, href: `/projects/${projectId}/batches/${batchId}` },
+          { label: encounter.bossName },
+        ]}
+      />
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="font-heading text-foreground-strong flex items-center gap-2 text-2xl font-bold">

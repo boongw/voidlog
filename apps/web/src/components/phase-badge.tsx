@@ -14,16 +14,30 @@ export function phaseColor(bossId: string, order: number, name?: string): string
   return PHASE_COLORS[index] ?? PHASE_COLORS[0]!;
 }
 
+// Some curated phase colors (e.g. Harvest Temple's intermission
+// "Purification" color) are deliberately muted for timeline borders/fills
+// but unreadable as text/border on the app's dark background — fall back to
+// a neutral, always-readable color when the phase color itself is too dark,
+// rather than hardcoding a per-boss phase-name check at every call site.
+export function readableHeadingColor(hex: string): string {
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.35 ? "var(--muted-strong)" : hex;
+}
+
 export function PhaseBadge({
   bossId,
   name,
   order,
 }: Readonly<{ bossId: string; name: string; order: number }>) {
   const color = phaseColor(bossId, order, name);
+  const readable = readableHeadingColor(color);
   return (
     <span
       className="inline-flex items-center rounded-sm border px-2.5 py-0.5 text-xs font-semibold"
-      style={{ background: `${color}20`, color, borderColor: color }}
+      style={{ background: `${color}20`, color: readable, borderColor: readable }}
     >
       {name}
     </span>

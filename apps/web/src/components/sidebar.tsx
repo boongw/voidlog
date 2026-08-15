@@ -10,7 +10,6 @@ interface SidebarProps {
   currentProject?: {
     id: string;
     name: string;
-    latestBatch?: { id: string; label: string } | null;
   };
 }
 
@@ -83,24 +82,12 @@ export function Sidebar({ userName, currentProject }: SidebarProps) {
             <NavDot shape="circle" />
             Roster
           </NavLink>
-          <NavLink
+          <Link
             href={`/projects/${currentProject.id}/batches/new`}
-            active={pathname === `/projects/${currentProject.id}/batches/new`}
+            className="bg-primary/10 text-primary hover:bg-primary/15 mt-3.5 flex items-center justify-center gap-2 rounded-sm px-2.5 py-2 text-sm font-semibold"
           >
-            <NavDot shape="diamond" />
-            Logs hochladen
-          </NavLink>
-          {currentProject.latestBatch ? (
-            <NavLink
-              href={`/projects/${currentProject.id}/batches/${currentProject.latestBatch.id}`}
-              active={pathname.startsWith(
-                `/projects/${currentProject.id}/batches/${currentProject.latestBatch.id}`,
-              )}
-            >
-              <NavDot shape="circle" />
-              <span className="truncate">Batch: {currentProject.latestBatch.label}</span>
-            </NavLink>
-          ) : null}
+            + Logs hochladen
+          </Link>
         </>
       ) : null}
 

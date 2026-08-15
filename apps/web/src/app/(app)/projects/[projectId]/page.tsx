@@ -1,6 +1,7 @@
 import { ProjectRole, prisma } from "@voidlog/db";
 import { Card, Table } from "@radix-ui/themes";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PhaseBadge } from "@/components/phase-badge";
 import { isMainPhase } from "@/lib/main-phases";
 import { requireProjectMembership } from "@/lib/projects";
@@ -125,6 +126,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
 
   return (
     <div className="px-10 py-8">
+      <Breadcrumbs items={[{ label: "Projekte", href: "/" }, { label: membership.project.name }]} />
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="font-heading text-foreground-strong text-2xl font-bold">

@@ -1,5 +1,6 @@
 import { prisma } from "@voidlog/db";
 import { Table } from "@radix-ui/themes";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { requireProjectMembership } from "@/lib/projects";
 import { requireSession } from "@/lib/session";
 
@@ -17,7 +18,7 @@ interface RosterEntry {
 export default async function RosterPage(props: PageProps<"/projects/[projectId]/players">) {
   const { projectId } = await props.params;
   const session = await requireSession();
-  await requireProjectMembership(projectId, session.user.id);
+  const membership = await requireProjectMembership(projectId, session.user.id);
 
   const playerResults = await prisma.playerResult.findMany({
     where: { encounterResult: { logFile: { batch: { projectId } } } },
@@ -74,6 +75,13 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
 
   return (
     <div className="px-10 py-8">
+      <Breadcrumbs
+        items={[
+          { label: "Projekte", href: "/" },
+          { label: membership.project.name, href: `/projects/${projectId}` },
+          { label: "Roster" },
+        ]}
+      />
       <h1 className="font-heading text-foreground-strong text-2xl font-bold">Roster</h1>
       <p className="text-muted mb-6 mt-1 text-sm">Alle Teilnehmer seit Projektstart</p>
 
