@@ -65,7 +65,6 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
         role,
         encounters: entry.encounters,
         kills: entry.kills,
-        successRate: Math.round((entry.kills / entry.encounters) * 100),
         avgDps: Math.round(entry.totalDps / entry.encounters),
         avgDowns: (entry.totalDowns / entry.encounters).toFixed(1),
         lastActive: entry.lastActive,
@@ -85,7 +84,6 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
             <Table.ColumnHeaderCell>Rolle</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Teilnahmen</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Erfolgsquote</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Ø DPS</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Ø Downs</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Zuletzt aktiv</Table.ColumnHeaderCell>
@@ -106,7 +104,6 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
               <Table.Cell className="text-muted-strong">{entry.role}</Table.Cell>
               <Table.Cell className="text-muted-strong">{entry.encounters}</Table.Cell>
               <Table.Cell className="text-muted-strong">{entry.kills}</Table.Cell>
-              <Table.Cell className="text-warning font-semibold">{entry.successRate}%</Table.Cell>
               <Table.Cell className="text-muted-strong">{entry.avgDps}</Table.Cell>
               <Table.Cell className="text-muted-strong">{entry.avgDowns}</Table.Cell>
               <Table.Cell className="text-muted text-sm">
@@ -116,7 +113,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
           ))}
           {roster.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={8} className="text-muted">
+              <Table.Cell colSpan={7} className="text-muted">
                 Noch keine ausgewerteten Logs.
               </Table.Cell>
             </Table.Row>
