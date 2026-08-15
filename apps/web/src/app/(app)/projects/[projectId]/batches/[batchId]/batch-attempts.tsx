@@ -42,9 +42,9 @@ export interface BatchPhaseStat {
 // neutral, always-readable color when the phase color itself is too dark,
 // rather than hardcoding a per-boss phase-name check here.
 function readableHeadingColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance < 0.35 ? "var(--muted-strong)" : hex;
 }
@@ -52,6 +52,11 @@ function readableHeadingColor(hex: string): string {
 function formatDuration(ms: number): string {
   const totalSeconds = Math.round(ms / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+function phaseStatusLabel(phase: { reached: boolean; success: boolean }): string {
+  if (!phase.reached) return "Nicht erreicht";
+  return phase.success ? "Abgeschlossen" : "Nicht abgeschlossen";
 }
 
 const MARKER_CLUSTER_GAP_MS = 500;
@@ -122,7 +127,7 @@ function markerTooltip(cluster: MarkerCluster): string {
 // Normal Mode and Challenge Mode share the same bossId (see EncounterResult
 // .isCM) — this is the only visual signal that an attempt was accidentally
 // uploaded in the wrong mode.
-function ModeBadge({ isCM }: { isCM: boolean }) {
+function ModeBadge({ isCM }: Readonly<{ isCM: boolean }>) {
   return (
     <span
       className={`rounded-sm px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -135,14 +140,7 @@ function ModeBadge({ isCM }: { isCM: boolean }) {
 }
 
 type AttackType =
-  | "jaws"
-  | "slam"
-  | "beam"
-  | "shockwave"
-  | "scream"
-  | "green"
-  | "spreadBait"
-  | "redBait";
+  "jaws" | "slam" | "beam" | "shockwave" | "scream" | "green" | "spreadBait" | "redBait";
 
 // The glyphs below (attackType/ATTACK_LABEL too) are inherently specific
 // to Harvest Temple CM's curated cast markers (see cast-markers.ts on the
@@ -174,7 +172,7 @@ const ATTACK_COLOR: Record<AttackType, string> = {
 // One small glyph per boss attack, drawn in the dragon's own color — sits
 // in its own lane above the phase bar so it reads as "the boss did this",
 // distinct in both position and color from the fail/death lane below.
-function AttackGlyph({ type, flipped }: { type: AttackType; flipped?: boolean }) {
+function AttackGlyph({ type, flipped }: Readonly<{ type: AttackType; flipped?: boolean }>) {
   const color = ATTACK_COLOR[type];
   if (type === "jaws") {
     return (
@@ -305,6 +303,102 @@ interface PhaseFilterGroup {
   fails: [string, string][];
 }
 
+interface PhaseMechanicGroup {
+  order: number;
+  attacks: Map<string, AttackType>;
+  fails: Map<string, string>;
+}
+
+// Sorts one phase's mechanics into its group's attacks/fails maps and records
+// which phases each mechanic appeared in — split out of buildPhaseMechanicMaps
+// below purely to keep nesting (and therefore cognitive complexity) low in any
+// single function; a triple-nested loop with branches inside all counts
+// against the same function otherwise.
+function collectPhaseMechanics(
+  phase: AttemptRow["phases"][number],
+  group: PhaseMechanicGroup,
+  phasesByMechanic: Map<string, Set<string>>,
+  attackTypeByMechanic: Map<string, AttackType>,
+  failLabelByMechanic: Map<string, string>,
+) {
+  for (const m of phase.mechanics) {
+    if (m.mechanicName in GLOBAL_MECHANIC_LABELS) continue;
+    const type = attackType(m.mechanicName);
+    if (type) {
+      if (!group.attacks.has(m.mechanicName)) group.attacks.set(m.mechanicName, type);
+      attackTypeByMechanic.set(m.mechanicName, type);
+    } else {
+      if (!group.fails.has(m.mechanicName)) group.fails.set(m.mechanicName, m.name);
+      failLabelByMechanic.set(m.mechanicName, m.name);
+    }
+    const phases = phasesByMechanic.get(m.mechanicName) ?? new Set<string>();
+    phases.add(phase.name);
+    phasesByMechanic.set(m.mechanicName, phases);
+  }
+}
+
+function buildPhaseMechanicMaps(attempts: AttemptRow[]) {
+  const groups = new Map<string, PhaseMechanicGroup>();
+  const phasesByMechanic = new Map<string, Set<string>>();
+  const attackTypeByMechanic = new Map<string, AttackType>();
+  const failLabelByMechanic = new Map<string, string>();
+
+  for (const a of attempts) {
+    for (const phase of a.phases) {
+      const group = groups.get(phase.name) ?? {
+        order: phase.order,
+        attacks: new Map<string, AttackType>(),
+        fails: new Map<string, string>(),
+      };
+      group.order = Math.min(group.order, phase.order);
+      collectPhaseMechanics(
+        phase,
+        group,
+        phasesByMechanic,
+        attackTypeByMechanic,
+        failLabelByMechanic,
+      );
+      groups.set(phase.name, group);
+    }
+  }
+
+  return { groups, phasesByMechanic, attackTypeByMechanic, failLabelByMechanic };
+}
+
+// Mechanics that show up in more than one main phase (e.g. a fail that can
+// happen throughout the fight, not tied to one phase) go into their own
+// "Mehrere Phasen" group instead of being listed once per phase.
+function buildPhaseFilterData(attempts: AttemptRow[]) {
+  const { groups, phasesByMechanic, attackTypeByMechanic, failLabelByMechanic } =
+    buildPhaseMechanicMaps(attempts);
+
+  const multiPhaseNames = new Set(
+    [...phasesByMechanic.entries()].filter(([, phases]) => phases.size > 1).map(([name]) => name),
+  );
+
+  const phaseFilterGroups: PhaseFilterGroup[] = [...groups.entries()]
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([name, g]) => ({
+      name,
+      order: g.order,
+      attacks: [...g.attacks.entries()].filter(([mn]) => !multiPhaseNames.has(mn)),
+      fails: [...g.fails.entries()]
+        .filter(([mn]) => !multiPhaseNames.has(mn))
+        .sort((a, b) => a[1].localeCompare(b[1])),
+    }));
+
+  const multiPhaseAttacks = [...multiPhaseNames]
+    .filter((mn) => attackTypeByMechanic.has(mn))
+    .map((mn) => [mn, attackTypeByMechanic.get(mn)!] as [string, AttackType]);
+
+  const multiPhaseFails = [...multiPhaseNames]
+    .filter((mn) => failLabelByMechanic.has(mn))
+    .map((mn) => [mn, failLabelByMechanic.get(mn)!] as [string, string])
+    .sort((a, b) => a[1].localeCompare(b[1]));
+
+  return { phaseFilterGroups, multiPhaseAttacks, multiPhaseFails };
+}
+
 // Mechanics that can happen in any phase (not tied to boss mechanics) — kept
 // out of the per-phase groups so they don't get listed once per phase, and
 // shown once under "Weitere" instead.
@@ -322,13 +416,13 @@ function MechanicToggle({
   icon,
   isHidden,
   onToggle,
-}: {
+}: Readonly<{
   mechanicName: string;
   label: string;
   icon: ReactNode;
   isHidden: boolean;
   onToggle: (mechanicName: string) => void;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -374,7 +468,7 @@ function failMechanicIcon(mechanicName: string, options?: { distinguishGreen?: b
 // "Boss-Angriffe" and "Mechaniken" columns. An em-dash placeholder keeps
 // empty cells from collapsing to nothing, so every row's two columns stay
 // visually aligned like a pricing table's feature grid.
-function MechanicCell({ children, empty }: { children: ReactNode; empty: boolean }) {
+function MechanicCell({ children, empty }: Readonly<{ children: ReactNode; empty: boolean }>) {
   return (
     <Table.Cell className="border-line-soft border-l">
       {empty ? (
@@ -396,7 +490,7 @@ function MechanicFilterAccordion({
   onToggle,
   onSelectAll,
   onDeselectAll,
-}: {
+}: Readonly<{
   bossId: string;
   phaseGroups: PhaseFilterGroup[];
   multiPhaseAttacks: [string, AttackType][];
@@ -406,10 +500,10 @@ function MechanicFilterAccordion({
   onToggle: (mechanicName: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
-}) {
+}>) {
   return (
     <details className="border-line-soft group mb-3.5 border-b pb-3.5">
-      <summary className="text-muted-strong flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold select-none">
+      <summary className="text-muted-strong flex cursor-pointer select-none list-none items-center gap-1.5 text-xs font-semibold">
         <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
         Mechanik-Filter
       </summary>
@@ -460,7 +554,9 @@ function MechanicFilterAccordion({
                 <Table.Cell>
                   <span
                     className="text-xs font-semibold"
-                    style={{ color: readableHeadingColor(phaseColor(bossId, group.order, group.name)) }}
+                    style={{
+                      color: readableHeadingColor(phaseColor(bossId, group.order, group.name)),
+                    }}
                   >
                     {group.name}
                   </span>
@@ -563,13 +659,13 @@ export function BatchAttempts({
   bossId,
   attempts,
   batchPhaseStats,
-}: {
+}: Readonly<{
   projectId: string;
   batchId: string;
   bossId: string;
   attempts: AttemptRow[];
   batchPhaseStats: BatchPhaseStat[];
-}) {
+}>) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [hiddenMechanics, setHiddenMechanics] = useState<Set<string>>(new Set());
   const maxDurationMs = Math.max(1, ...attempts.map((a) => a.durationMs));
@@ -639,70 +735,10 @@ export function BatchAttempts({
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [attempts]);
 
-  // Mechanics that show up in more than one main phase (e.g. a fail that can
-  // happen throughout the fight, not tied to one phase) go into their own
-  // "Mehrere Phasen" group instead of being listed once per phase.
-  const { phaseFilterGroups, multiPhaseAttacks, multiPhaseFails } = useMemo(() => {
-    const groups = new Map<
-      string,
-      { order: number; attacks: Map<string, AttackType>; fails: Map<string, string> }
-    >();
-    const phasesByMechanic = new Map<string, Set<string>>();
-    const attackTypeByMechanic = new Map<string, AttackType>();
-    const failLabelByMechanic = new Map<string, string>();
-
-    for (const a of attempts) {
-      for (const phase of a.phases) {
-        const group = groups.get(phase.name) ?? {
-          order: phase.order,
-          attacks: new Map<string, AttackType>(),
-          fails: new Map<string, string>(),
-        };
-        group.order = Math.min(group.order, phase.order);
-        for (const m of phase.mechanics) {
-          if (m.mechanicName in GLOBAL_MECHANIC_LABELS) continue;
-          const type = attackType(m.mechanicName);
-          if (type) {
-            if (!group.attacks.has(m.mechanicName)) group.attacks.set(m.mechanicName, type);
-            attackTypeByMechanic.set(m.mechanicName, type);
-          } else {
-            if (!group.fails.has(m.mechanicName)) group.fails.set(m.mechanicName, m.name);
-            failLabelByMechanic.set(m.mechanicName, m.name);
-          }
-          const phases = phasesByMechanic.get(m.mechanicName) ?? new Set<string>();
-          phases.add(phase.name);
-          phasesByMechanic.set(m.mechanicName, phases);
-        }
-        groups.set(phase.name, group);
-      }
-    }
-
-    const multiPhaseNames = new Set(
-      [...phasesByMechanic.entries()].filter(([, phases]) => phases.size > 1).map(([name]) => name),
-    );
-
-    const phaseFilterGroups = [...groups.entries()]
-      .sort((a, b) => a[1].order - b[1].order)
-      .map(([name, g]) => ({
-        name,
-        order: g.order,
-        attacks: [...g.attacks.entries()].filter(([mn]) => !multiPhaseNames.has(mn)),
-        fails: [...g.fails.entries()]
-          .filter(([mn]) => !multiPhaseNames.has(mn))
-          .sort((a, b) => a[1].localeCompare(b[1])),
-      }));
-
-    const multiPhaseAttacks = [...multiPhaseNames]
-      .filter((mn) => attackTypeByMechanic.has(mn))
-      .map((mn) => [mn, attackTypeByMechanic.get(mn)!] as [string, AttackType]);
-
-    const multiPhaseFails = [...multiPhaseNames]
-      .filter((mn) => failLabelByMechanic.has(mn))
-      .map((mn) => [mn, failLabelByMechanic.get(mn)!] as [string, string])
-      .sort((a, b) => a[1].localeCompare(b[1]));
-
-    return { phaseFilterGroups, multiPhaseAttacks, multiPhaseFails };
-  }, [attempts]);
+  const { phaseFilterGroups, multiPhaseAttacks, multiPhaseFails } = useMemo(
+    () => buildPhaseFilterData(attempts),
+    [attempts],
+  );
 
   return (
     <Tabs.Root defaultValue="table">
@@ -812,7 +848,9 @@ export function BatchAttempts({
                       className="bg-line-soft/40 flex items-center gap-1 rounded-sm px-1.5 py-1"
                     >
                       {failMechanicIcon(m.mechanicName)}
-                      <span className="text-foreground-strong text-[11px] font-bold">{m.count}</span>
+                      <span className="text-foreground-strong text-[11px] font-bold">
+                        {m.count}
+                      </span>
                     </span>
                   ))}
                   {bp.mechanics.length === 0 ? (
@@ -839,7 +877,9 @@ export function BatchAttempts({
         <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
           {attempts.map((a) => {
             const isOpen = expanded === a.n;
-            const visibleMechanics = a.mechanics.filter((m) => !hiddenMechanics.has(m.mechanicName));
+            const visibleMechanics = a.mechanics.filter(
+              (m) => !hiddenMechanics.has(m.mechanicName),
+            );
             const highFreqClusters = clusterMarkers(
               visibleMechanics.filter((m) => {
                 const type = attackType(m.mechanicName);
@@ -888,11 +928,11 @@ export function BatchAttempts({
                         (tooltip shows the count) since these still pile up
                         heavily per player even in their own lane. */}
                     <span className="relative h-4 w-full">
-                      {highFreqClusters.map((c, i) => {
+                      {highFreqClusters.map((c) => {
                         const type = attackType(c.mechanicName)!;
                         return (
                           <span
-                            key={`bait-${i}`}
+                            key={`${c.mechanicName}-${c.timeMs}`}
                             title={markerTooltip(c)}
                             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                             style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
@@ -906,7 +946,7 @@ export function BatchAttempts({
                         positioned above the bar so the category reads from position
                         alone, not just from the glyph. Also clustered (see Lane 0). */}
                     <span className="relative h-4 w-full">
-                      {attackClusters.map((c, i) => {
+                      {attackClusters.map((c) => {
                         const type = attackType(c.mechanicName)!;
                         const flipped =
                           c.mechanicName === "Beam.Cast"
@@ -914,7 +954,7 @@ export function BatchAttempts({
                             : undefined;
                         return (
                           <span
-                            key={`attack-${i}`}
+                            key={`${c.mechanicName}-${c.timeMs}`}
                             title={markerTooltip(c)}
                             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                             style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
@@ -941,19 +981,19 @@ export function BatchAttempts({
                     </span>
                     {/* Lane 3: fails/deaths — icon size matched to the attack lane. */}
                     <span className="relative h-4 w-full">
-                      {a.deaths.map((d, i) => (
+                      {a.deaths.map((d) => (
                         <span
-                          key={`death-${i}`}
-                          title={`Tod${d.player ? ` — ${d.player}` : ""}`}
+                          key={`${d.timeMs}-${d.player ?? ""}`}
+                          title={d.player ? `Tod — ${d.player}` : "Tod"}
                           className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                           style={{ left: `${(d.timeMs / a.durationMs) * 100}%` }}
                         >
                           <Cross2Icon className="text-danger h-3.5 w-3.5" />
                         </span>
                       ))}
-                      {failClusters.map((c, i) => (
+                      {failClusters.map((c) => (
                         <span
-                          key={`mech-${i}`}
+                          key={`${c.mechanicName}-${c.timeMs}`}
                           title={markerTooltip(c)}
                           className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                           style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
@@ -981,17 +1021,15 @@ export function BatchAttempts({
                           <div
                             key={phase.order}
                             className="bg-surface-2 border-line border-l-3 rounded-sm border-y border-r px-2.5 py-2"
-                            style={{ borderLeftColor: phaseColor(a.bossId, phase.order, phase.name) }}
+                            style={{
+                              borderLeftColor: phaseColor(a.bossId, phase.order, phase.name),
+                            }}
                           >
                             <div className="text-muted mb-1 text-[10px] uppercase">
                               {phase.name}
                             </div>
                             <div className="text-foreground text-xs font-semibold">
-                              {phase.reached
-                                ? phase.success
-                                  ? "Abgeschlossen"
-                                  : "Nicht abgeschlossen"
-                                : "Nicht erreicht"}
+                              {phaseStatusLabel(phase)}
                             </div>
                             {failMechanics.length > 0 ? (
                               <div className="text-muted-strong mt-1 text-[10.5px]">
