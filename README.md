@@ -139,6 +139,13 @@ pnpm typecheck        # tsc --noEmit across all packages
 - [x] add HTCm greens mechanic in boss attack row
 - [ ] Reveal mechanic analysis
 - [ ] Improve mechanic aggregation across a log batch
+- [ ] Track player revives (who revived whom, and when) — `MechanicEvent`
+  currently stores one `actor` per "Res"/"Resp"/"Got up" event (real EI
+  mechanics, already extracted but filtered as noise), which isn't enough
+  to attribute a revive to both the reviver and the revived player. Needs
+  investigating EI's per-player `support`/`deathRecap` stats or the
+  (currently discarded) player skill-cast `rotation` log against a real
+  dps.report response before extraction/schema changes are decided.
 - [ ] Charts for the batch overview page
   - [x] add runs which failed by greens as diagram
 - [ ] Curate additional boss encounters beyond Harvest Temple CM
