@@ -13,6 +13,7 @@ interface RosterEntry {
   totalDowns: number;
   roleCounts: Map<string, number>;
   lastActive: Date;
+  shockwaveHits: number;
 }
 
 export default async function RosterPage(props: PageProps<"/projects/[projectId]/players">) {
@@ -29,6 +30,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       downs: true,
       role: true,
       encounterResult: { select: { success: true, createdAt: true } },
+      mechanicEvents: { select: { mechanicName: true } },
     },
   });
 
@@ -45,6 +47,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       totalDowns: 0,
       roleCounts: new Map<string, number>(),
       lastActive: p.encounterResult.createdAt,
+      shockwaveHits: 0,
     };
     entry.characterNames.add(p.characterName);
     entry.encounters += 1;
@@ -54,6 +57,9 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
     if (p.encounterResult.createdAt > entry.lastActive)
       entry.lastActive = p.encounterResult.createdAt;
     if (p.role) entry.roleCounts.set(p.role, (entry.roleCounts.get(p.role) ?? 0) + 1);
+    // "ShckWv.H" is Mordremoth's raw EI code for a Schockwelle hit — same
+    // hardcoded-stat treatment as the batch-roster and batch-detail stats.
+    entry.shockwaveHits += p.mechanicEvents.filter((m) => m.mechanicName === "ShckWv.H").length;
     byAccount.set(p.account, entry);
   }
 
@@ -69,6 +75,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
         avgDps: Math.round(entry.totalDps / entry.encounters),
         avgDowns: (entry.totalDowns / entry.encounters).toFixed(1),
         lastActive: entry.lastActive,
+        shockwaveHits: entry.shockwaveHits,
       };
     })
     .sort((a, b) => b.encounters - a.encounters);
@@ -94,6 +101,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
             <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Ø DPS</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Ø Downs</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Zuletzt aktiv</Table.ColumnHeaderCell>
           </Table.Row>
         </Table.Header>
@@ -114,6 +122,9 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
               <Table.Cell className="text-muted-strong">{entry.kills}</Table.Cell>
               <Table.Cell className="text-muted-strong">{entry.avgDps}</Table.Cell>
               <Table.Cell className="text-muted-strong">{entry.avgDowns}</Table.Cell>
+              <Table.Cell className="text-warning font-semibold">
+                {entry.shockwaveHits}
+              </Table.Cell>
               <Table.Cell className="text-muted text-sm">
                 {entry.lastActive.toLocaleDateString("de-DE")}
               </Table.Cell>
@@ -121,7 +132,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
           ))}
           {roster.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={7} className="text-muted">
+              <Table.Cell colSpan={8} className="text-muted">
                 Noch keine ausgewerteten Logs.
               </Table.Cell>
             </Table.Row>
