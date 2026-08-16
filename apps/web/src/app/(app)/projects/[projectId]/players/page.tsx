@@ -75,11 +75,10 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       avgDowns: (entry.totalDowns / entry.encounters).toFixed(1),
       lastActive: entry.lastActive,
       shockwaveHits: entry.shockwaveHits,
-      // Hits per encounter, not "share of all hits" — same rate convention
-      // as greenFailRate/shockwaveHitRate on the batch overview page. Can
-      // exceed 100%: a player can be hit by more than one shockwave per
-      // encounter.
-      shockwaveHitRate: Math.round((entry.shockwaveHits / entry.encounters) * 100),
+      // Hits per encounter (not a percentage) — a player can be hit by
+      // more than one shockwave per encounter, so a "%" reads oddly once
+      // it passes 100.
+      shockwaveHitsPerEncounter: (entry.shockwaveHits / entry.encounters).toFixed(2),
     };
   });
 

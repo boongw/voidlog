@@ -13,7 +13,7 @@ export interface RosterRow {
   avgDps: number;
   avgDowns: string;
   shockwaveHits: number;
-  shockwaveHitRate: number;
+  shockwaveHitsPerEncounter: string;
   lastActive: Date;
 }
 
@@ -126,7 +126,9 @@ export function RosterTable({ roster }: Readonly<{ roster: RosterRow[] }>) {
             <Table.Cell className="text-muted-strong">{entry.avgDowns}</Table.Cell>
             <Table.Cell className="text-warning font-semibold">
               {entry.shockwaveHits}{" "}
-              <span className="text-muted text-sm font-medium">({entry.shockwaveHitRate}%)</span>
+              <span className="text-muted text-sm font-medium">
+                (Ø {entry.shockwaveHitsPerEncounter})
+              </span>
             </Table.Cell>
             <Table.Cell className="text-muted text-sm">
               {entry.lastActive.toLocaleDateString("de-DE")}
