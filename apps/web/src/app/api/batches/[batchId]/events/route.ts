@@ -41,6 +41,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ batc
         const logFiles = await prisma.logFile.findMany({
           where: { batchId },
           select: { id: true, status: true, errorMessage: true },
+          // Without an explicit order, Postgres doesn't guarantee row order
+          // is stable across repeated queries — the progress table would
+          // reshuffle on every SSE push. createdAt alone can tie (the
+          // batch-creation route inserts all files concurrently), so id is
+          // a secondary tiebreaker to make the order fully deterministic.
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         });
         const total = logFiles.length;
         const done = logFiles.filter((f) => f.status === LogFileStatus.DONE).length;
