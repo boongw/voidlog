@@ -6,7 +6,7 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "pnpm --parallel --filter=./apps/* run dev",
     "build": "pnpm --recursive --filter=./apps/* run build",

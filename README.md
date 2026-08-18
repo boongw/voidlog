@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6?logo=typescript&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22-2d3748?logo=prisma&logoColor=white)
 ![BullMQ](https://img.shields.io/badge/BullMQ-5.28-c53030?logo=redis&logoColor=white)
-![pnpm](https://img.shields.io/badge/pnpm-9.15-f69220?logo=pnpm&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-11.22-f69220?logo=pnpm&logoColor=white)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
 
 A web app for uploading, parsing, and comparing Guild Wars 2 EVTC combat
@@ -61,6 +61,7 @@ scripts/
 
 ```bash
 pnpm install
+pnpm approve-builds   # allow native/build scripts (Prisma client generation etc.)
 docker compose up -d
 cp .env.example .env
 ```
