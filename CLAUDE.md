@@ -12,9 +12,9 @@ Currently only one boss encounter is curated end-to-end: Harvest Temple CM / "Di
 
 ```bash
 pnpm install
-docker compose up -d        # Postgres :5432, Redis :6379, MinIO :9000 (console :9001, login voidlog/voidlog123)
+docker compose up -d        # Postgres :5433, Redis :6380, MinIO :9000 (console :9001, login voidlog/voidlog123)
 cp .env.example .env
-pnpm dev                     # runs apps/web (:3000) + apps/worker in parallel
+pnpm dev                     # runs apps/web (:4000) + apps/worker in parallel
 ```
 
 ```bash

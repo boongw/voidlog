@@ -19,7 +19,7 @@ import { createStorageClient, putObjectBuffer } from "@voidlog/shared";
  * restart the worker and re-run this script.
  */
 
-const WEB_BASE_URL = process.env.WEB_BASE_URL ?? "http://localhost:3000";
+const WEB_BASE_URL = process.env.WEB_BASE_URL ?? "http://localhost:4000";
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 

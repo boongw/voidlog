@@ -70,7 +70,7 @@ cp .env.example .env
 
 1. Create a new application in the [Discord Developer Portal](https://discord.com/developers/applications).
 2. Under "OAuth2", add a redirect URI:
-   `http://localhost:3000/api/auth/callback/discord`.
+   `http://localhost:4000/api/auth/callback/discord`.
 3. Enter `AUTH_DISCORD_ID` (client ID) and `AUTH_DISCORD_SECRET` (client secret)
    in `.env`.
 
@@ -82,7 +82,7 @@ pnpm seed:test-session
 
 Creates a test user and a valid DB session, and prints the cookie value
 (`authjs.session-token`) that you can set in the browser (DevTools →
-Application → Cookies) for `127.0.0.1:3000`, to view protected pages
+Application → Cookies) for `127.0.0.1:4000`, to view protected pages
 without a real OAuth flow.
 
 ## Development
@@ -91,9 +91,9 @@ without a real OAuth flow.
 pnpm dev
 ```
 
-Runs `apps/web` (http://127.0.0.1:3000) and `apps/worker` in parallel.
+Runs `apps/web` (http://127.0.0.1:4000) and `apps/worker` in parallel.
 
-Local infrastructure (Postgres on `:5432`, Redis on `:6379`, MinIO S3 API
+Local infrastructure (Postgres on `:5433`, Redis on `:6380`, MinIO S3 API
 on `:9000` / console on `:9001`, login `voidlog` / `voidlog123`) runs via
 `docker compose up -d` and stops with:
 
