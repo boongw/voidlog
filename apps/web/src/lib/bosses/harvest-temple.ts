@@ -65,6 +65,12 @@ const MECHANIC_NAMES: Record<string, string> = {
   "Knck.Pll": "Weggezogen (Pull, vermutlich)",
   Debilitated: "Geschwächt (Debilitated)",
   Infirmity: "Gebrechlichkeit (Infirmity)",
+  // Invisible-Phase-Mechanik (nach Jormag/Primordus/Mordremoth, siehe
+  // worker/src/boss-configs/stealth-phases.ts): ein Spieler castet Mass
+  // Invisibility, wer danach zu früh angreift, bricht die Unsichtbarkeit
+  // und erhält Revealed.
+  "Invis.Cast": "Massenunsichtbarkeit gecastet",
+  Revealed: "Aufgedeckt (Revealed)",
 
   // General (Harvest Temple, all phases)
   "Spread.B": "Spread Bait",
@@ -202,6 +208,9 @@ const VISIBLE_CAST_MARKERS = new Set([
   "Green.Spawn",
   "Spread.B",
   "Red.B",
+  // Not a boss-ability cast (see stealth-phases.ts on the worker) but
+  // rendered the same way — a distinct timeline tick, not a generic fail.
+  "Invis.Cast",
 ]);
 
 export const harvestTemple: BossCuration = {

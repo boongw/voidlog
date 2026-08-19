@@ -37,6 +37,19 @@ export interface EiPlayerDefensesEntry {
   downCount?: number;
 }
 
+/**
+ * One buff id's presence timeline for a single player, e.g. id 890 =
+ * "Revealed" (per buffMap). `states` is a flat list of `[timeMs, presence]`
+ * transitions (presence 0|1) — kept only for buff ids the stealth-phase
+ * config (see boss-configs/stealth-phases.ts) actually watches; the rest of
+ * this array's fields (`buffData`, `statesPerSource` — per-source generation
+ * stats, the bulk of this structure's ~100KB/player size) are never read.
+ */
+export interface EiPlayerBuffUptimeActiveEntry {
+  id: number;
+  states?: [number, number][];
+}
+
 export interface EiPlayer {
   account: string;
   name: string;
@@ -46,6 +59,20 @@ export interface EiPlayer {
   dpsAll?: EiPlayerDpsAllEntry[];
   /** Per-phase array; index 0 is assumed to be "all phases combined". */
   defenses?: EiPlayerDefensesEntry[];
+  /**
+   * This player's own skill-cast log — kept transiently to detect
+   * stealth-phase casts (see boss-configs/stealth-phases.ts) and to
+   * attribute a "Revealed" debuff to the skill that likely caused it. Never
+   * persisted wholesale (~20-27KB/player, ~300+ casts) — only the handful
+   * of derived STEALTH/REVEAL MechanicEvent rows survive extraction.
+   */
+  rotation?: EiRotationEntry[];
+  /**
+   * Kept transiently for the same reason as `rotation` — only entries whose
+   * `id` the stealth-phase config watches are ever read; the field is never
+   * persisted as-is.
+   */
+  buffUptimesActive?: EiPlayerBuffUptimeActiveEntry[];
   // statsAll, support, deathRecap, consumables, activeTimes are read by
   // dps.report/EI too but not needed for the step-2 minimal extraction.
 }
@@ -53,7 +80,7 @@ export interface EiPlayer {
 /** One cast of `id` (a skill id, matching a `skillMap` key without the "s" prefix). */
 export interface EiRotationEntry {
   id: number;
-  skills: { castTime: number }[];
+  skills: { castTime: number; duration?: number }[];
 }
 
 export interface EiTarget {

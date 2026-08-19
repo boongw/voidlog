@@ -30,7 +30,20 @@ const ROOT_KEEP_WHOLE = new Set([
   "timeStartStd",
 ]);
 
-const PLAYER_KEEP_WHOLE = new Set(["account", "name", "profession", "group", "dpsAll", "defenses"]);
+// "rotation"/"buffUptimesActive" are transient inputs for the stealth-phase
+// synthesis in persist-encounter.ts (see boss-configs/stealth-phases.ts) —
+// each is a bounded per-player field (tens of KB, not the tens-of-MB problem
+// this module exists to avoid), never persisted wholesale.
+const PLAYER_KEEP_WHOLE = new Set([
+  "account",
+  "name",
+  "profession",
+  "group",
+  "dpsAll",
+  "defenses",
+  "rotation",
+  "buffUptimesActive",
+]);
 
 // `targets[]` also carries per-target damage/buff/combat-replay breakdowns
 // (the bulk of the JSON's ~1MB `targets` payload) — keep only the cast log

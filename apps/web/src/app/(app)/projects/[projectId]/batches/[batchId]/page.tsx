@@ -19,6 +19,18 @@ import { DeleteBatchButton } from "./delete-batch-button";
 import { RemoveLogButton } from "./remove-log-button";
 import { RetryLogButton } from "./retry-log-button";
 
+// Reads MechanicEvent.context.phaseEnd.msSincePhaseEnd (see stealth-phases.ts
+// on the worker) without assuming the JSON shape — context is untyped Json?
+// in the schema, and only the stealth-phase events (currently just
+// "Invis.Cast") populate this key at all.
+function readMsSincePhaseEnd(context: unknown): number | undefined {
+  if (!context || typeof context !== "object") return undefined;
+  const phaseEnd = (context as Record<string, unknown>).phaseEnd;
+  if (!phaseEnd || typeof phaseEnd !== "object") return undefined;
+  const value = (phaseEnd as Record<string, unknown>).msSincePhaseEnd;
+  return typeof value === "number" ? value : undefined;
+}
+
 // storageKeyRaw looks like "raw/<batchId>/<uuid>-<sanitized filename>" — strip
 // the batch/uuid prefix so failed uploads show the original filename.
 function displayFileName(storageKeyRaw: string): string {
@@ -284,6 +296,13 @@ export default async function BatchDetailPage(
 
   const attemptRows: AttemptRow[] = encounters.map(({ logFile, encounter }, i) => {
     const mainPhases = encounter.phaseResults.filter((p) => isMainPhase(encounter.bossId, p.name));
+    // EI doesn't always cover every second of the fight with a named main
+    // phase — e.g. a dragon's own phase can end several seconds before the
+    // next main phase's `startMs` (that gap is exactly where the
+    // Mass-Invisibility stealth window lives, see stealth-phases.ts on the
+    // worker). Used below so `eventsInRange` attributes a gap-dwelling event
+    // to the phase it causally followed instead of silently dropping it.
+    const mainPhasesByStart = [...mainPhases].sort((a, b) => a.startMs - b.startMs);
     const reachedMainPhases = mainPhases.filter((p) => p.reached);
     const furthest = reachedMainPhases.at(-1) ?? null;
     return {
@@ -319,6 +338,7 @@ export default async function BatchDetailPage(
             name: translateMechanicName(encounter.bossId, m.mechanicName, m.displayName),
             mechanicName: m.mechanicName,
             player: m.playerResult?.characterName ?? null,
+            msSincePhaseEnd: readMsSincePhaseEnd(m.context),
           })),
       ),
       phases: mainPhases.map((p) => {
@@ -332,10 +352,16 @@ export default async function BatchDetailPage(
         // field above (built from *all* phaseResults). Re-bucket by time
         // range instead, so every event that happened during this phase's
         // window is included regardless of which sub-phase record it's
-        // attached to.
+        // attached to. The upper bound is the *next* main phase's start, not
+        // this phase's own `endMs` — extends coverage through any gap where
+        // EI doesn't have a named phase running (see mainPhasesByStart
+        // above) so an event landing there attributes to the phase it
+        // followed instead of vanishing from every phase's bucket.
+        const nextPhaseStart =
+          mainPhasesByStart[mainPhasesByStart.indexOf(p) + 1]?.startMs ?? Infinity;
         const eventsInRange = encounter.phaseResults
           .flatMap((pr) => pr.mechanicEvents)
-          .filter((m) => m.timeMs >= p.startMs && m.timeMs < p.endMs);
+          .filter((m) => m.timeMs >= p.startMs && m.timeMs < nextPhaseStart);
         return {
           name: p.name,
           order: p.order,

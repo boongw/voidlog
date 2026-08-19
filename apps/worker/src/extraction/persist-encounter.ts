@@ -6,8 +6,126 @@ import {
   CURATED_CAST_MARKERS_BY_BOSS,
   EXCLUDED_ROTATION_SKILL_IDS,
 } from "../boss-configs/cast-markers";
+import { STEALTH_PHASES_BY_BOSS } from "../boss-configs/stealth-phases";
 import { DEATH_MECHANIC_NAME, parseEiTimestamp } from "./ei-json-shape";
+import type { EiRotationEntry } from "./ei-json-shape";
 import type { ExtractedEncounter } from "./extract-encounter";
+
+// An instant-cast skill firing right at the reveal instant can still be
+// logged a tick or two *after* the reveal timestamp (confirmed on a real
+// log: a 1ms gap) — combat-log granularity, not a causality violation. Kept
+// far smaller than `toleranceMs` (which covers the backward case of a
+// channeled/animated skill whose damage lands partway through its cast) so
+// this doesn't start attributing genuinely later, unrelated casts.
+const CAUSING_SKILL_FORWARD_TOLERANCE_MS = 200;
+
+/**
+ * Finds the skill cast most likely responsible for a "Revealed" debuff at
+ * `revealTime`: the cast whose window `[castTime, castTime + duration]`
+ * contains `revealTime` (an in-progress channeled/animated skill breaking
+ * stealth partway through), the closest preceding cast within `toleranceMs`
+ * (an instant-cast skill that finished before the reveal was logged), or a
+ * cast starting up to `CAUSING_SKILL_FORWARD_TOLERANCE_MS` after
+ * `revealTime` (an instant-cast skill logged a tick late) — all three
+ * patterns confirmed on a real log, see stealth-phases.ts. Returns undefined
+ * if nothing plausible is within tolerance, rather than guessing — notably
+ * including the known gap where the real cause was a pet/phantasm/minion hit
+ * with no timestamp anywhere in `rotation` (see stealth-phases.ts's "Known
+ * gap" note).
+ */
+function findCausingSkill(
+  rotation: EiRotationEntry[] | undefined,
+  revealTime: number,
+  toleranceMs: number,
+  skillMap: Record<string, { name: string }>,
+): { skillId: number; skillName: string } | undefined {
+  let best: { skillId: number; skillName: string; distance: number } | undefined;
+  for (const entry of rotation ?? []) {
+    for (const cast of entry.skills) {
+      const start = cast.castTime;
+      const end = cast.castTime + (cast.duration ?? 0);
+      let distance: number;
+      if (revealTime >= start && revealTime <= end) {
+        distance = 0;
+      } else if (start > revealTime) {
+        if (start - revealTime > CAUSING_SKILL_FORWARD_TOLERANCE_MS) continue;
+        distance = start - revealTime;
+      } else {
+        distance = revealTime - end;
+        if (distance > toleranceMs) continue;
+      }
+      if (!best || distance < best.distance) {
+        best = {
+          skillId: entry.id,
+          skillName: skillMap[`s${entry.id}`]?.name ?? `Skill ${entry.id}`,
+          distance,
+        };
+      }
+    }
+  }
+  return best ? { skillId: best.skillId, skillName: best.skillName } : undefined;
+}
+
+/**
+ * The phase (from EI's raw, unfiltered `phases[]` — not just curated main
+ * boss phases) whose `end` is the largest value at or before `timeMs`, i.e.
+ * "whatever most recently finished" — a boss-agnostic stand-in for "the
+ * previous phase's target died", which is how the reference tool this data
+ * is meant to be comparable against anchors its own timeline (see
+ * stealth-phases.ts). Real HTCM phases don't overlap at their end/next-start
+ * boundary, so in practice this resolves to the dragon phase that just
+ * ended, not an intermission/sub-phase.
+ */
+function findMostRecentlyEndedPhase(
+  phases: { name: string; start: number; end: number }[],
+  timeMs: number,
+): { name: string; end: number } | undefined {
+  let best: { name: string; end: number } | undefined;
+  for (const phase of phases) {
+    if (phase.end <= timeMs && (!best || phase.end > best.end)) {
+      best = { name: phase.name, end: phase.end };
+    }
+  }
+  return best;
+}
+
+/**
+ * Chains `items` (must be pre-sorted by `time`) into runs where each
+ * consecutive pair is at most `gapMs` apart — e.g. `[0, 100, 900, 950]` with
+ * `gapMs=250` produces `[[0,100],[900,950]]`, not one run of 4 (the 800ms
+ * jump from 100 to 900 breaks the chain even though the whole span is under
+ * some fixed window). Used to tell an intentional squad-wide "attack now"
+ * burst of reveals (many players, all within the same instant) apart from
+ * several unrelated isolated reveals that merely land in the same multi-
+ * second window — see stealth-phases.ts's `groupRevealClusterGapMs`.
+ */
+function chainCluster<T extends { time: number }>(items: T[], gapMs: number): T[][] {
+  const clusters: T[][] = [];
+  let current: T[] = [];
+  for (const item of items) {
+    const last = current.at(-1);
+    if (last && item.time - last.time > gapMs) {
+      clusters.push(current);
+      current = [];
+    }
+    current.push(item);
+  }
+  if (current.length > 0) clusters.push(current);
+  return clusters;
+}
+
+/** `context.phaseEnd` shape shared by STEALTH and REVEAL stealth-phase events. */
+function phaseEndContext(
+  precedingPhase: { name: string; end: number } | undefined,
+  timeMs: number,
+): { phaseName: string; phaseEndMs: number; msSincePhaseEnd: number } | undefined {
+  if (!precedingPhase) return undefined;
+  return {
+    phaseName: precedingPhase.name,
+    phaseEndMs: Math.round(precedingPhase.end),
+    msSincePhaseEnd: Math.round(timeMs - precedingPhase.end),
+  };
+}
 
 const CATEGORY_MAP: Record<SharedMechanicCategory, MechanicCategory> = {
   mistake: MechanicCategory.MISTAKE,
@@ -248,6 +366,111 @@ export async function persistExtractedEncounter(
               timeMs: Math.round(time),
             },
           });
+        }
+      }
+
+      // "Invisible phase" mechanic (see stealth-phases.ts): one STEALTH
+      // event per Mass-Invisibility-style cast (attributed to the caster,
+      // found by scanning every player's own rotation for the watched skill
+      // id — only one player casts it, but which one varies), then one
+      // REVEAL event for each player whose "Revealed" buff transitions to
+      // active while the invisibility is still up — EXCEPT when a burst of
+      // several players reveal together (an intentional squad-wide "attack
+      // now" call, not mistakes — see `groupRevealMinSize`/
+      // `groupRevealClusterGapMs`), which is dropped entirely rather than
+      // persisted. `rotation`/`buffUptimesActive` are read here only — never
+      // written to the DB as-is (see ei-json-shape.ts).
+      for (const config of STEALTH_PHASES_BY_BOSS[bossId] ?? []) {
+        const invisCasts: { timeMs: number; durationMs: number; casterName: string }[] = [];
+        for (const player of players) {
+          const entry = player.rotation?.find((r) => r.id === config.invisSkillId);
+          for (const cast of entry?.skills ?? []) {
+            invisCasts.push({
+              timeMs: cast.castTime,
+              durationMs: cast.duration ?? 0,
+              casterName: player.name,
+            });
+          }
+        }
+        invisCasts.sort((a, b) => a.timeMs - b.timeMs);
+
+        for (const invisCast of invisCasts) {
+          // Anchors both this event and its reveals to the same "previous
+          // phase ended" reference the comparison tool uses, so a value like
+          // "msSincePhaseEnd" lines up 1:1 with what that tool shows —
+          // confirmed against two real logs (both invis casts landed <1s
+          // after their dragon phase's `end`, matching that tool's reading).
+          const precedingPhase = findMostRecentlyEndedPhase(sortedPhases, invisCast.timeMs);
+          const invisPhaseEnd = phaseEndContext(precedingPhase, invisCast.timeMs);
+
+          const phaseIndex = resolvePhaseIndex(invisCast.timeMs);
+          await tx.mechanicEvent.create({
+            data: {
+              phaseResultId: phaseIdsInOrder[phaseIndex]!,
+              playerResultId: playerIdByCharacterName.get(invisCast.casterName) ?? null,
+              mechanicName: config.mechanicName,
+              category: MechanicCategory.STEALTH,
+              displayName: config.displayName,
+              timeMs: Math.round(invisCast.timeMs),
+              context: invisPhaseEnd ? { phaseEnd: invisPhaseEnd } : undefined,
+            },
+          });
+
+          // Bounded by the buff's own duration from when the channel
+          // actually finishes (cast start + its own duration), not from
+          // cast start — see stealthDurationMs doc.
+          const stealthExpiresAt =
+            invisCast.timeMs + invisCast.durationMs + config.stealthDurationMs;
+          const revealsInWindow: { time: number; playerName: string }[] = [];
+          for (const player of players) {
+            const buffEntry = player.buffUptimesActive?.find((b) => b.id === config.revealBuffId);
+            const revealTime = (buffEntry?.states ?? []).find(
+              ([time, presence]) =>
+                presence === 1 && time >= invisCast.timeMs && time <= stealthExpiresAt,
+            )?.[0];
+            if (revealTime === undefined) continue;
+            revealsInWindow.push({ time: revealTime, playerName: player.name });
+          }
+          revealsInWindow.sort((a, b) => a.time - b.time);
+
+          const isolatedReveals = chainCluster(
+            revealsInWindow,
+            config.groupRevealClusterGapMs,
+          ).filter((cluster) => cluster.length < config.groupRevealMinSize);
+
+          for (const { time: revealTime, playerName } of isolatedReveals.flat()) {
+            const player = players.find((p) => p.name === playerName)!;
+            const causingSkill = findCausingSkill(
+              player.rotation,
+              revealTime,
+              config.causingSkillToleranceMs,
+              root.skillMap,
+            );
+            // Reveal shares the invis cast's `precedingPhase` (not its own
+            // narrowest-containing phase) — the whole invis window is one
+            // "how long after the phase ended" story, so every reveal in it
+            // should be measured against the same reference point.
+            const revealPhaseEnd = phaseEndContext(precedingPhase, revealTime);
+
+            const revealPhaseIndex = resolvePhaseIndex(revealTime);
+            await tx.mechanicEvent.create({
+              data: {
+                phaseResultId: phaseIdsInOrder[revealPhaseIndex]!,
+                playerResultId: playerIdByCharacterName.get(playerName) ?? null,
+                mechanicName: config.revealMechanicName,
+                category: MechanicCategory.REVEAL,
+                displayName: config.revealDisplayName,
+                timeMs: Math.round(revealTime),
+                context:
+                  causingSkill || revealPhaseEnd
+                    ? {
+                        ...(causingSkill ? { causingSkill } : {}),
+                        ...(revealPhaseEnd ? { phaseEnd: revealPhaseEnd } : {}),
+                      }
+                    : undefined,
+              },
+            });
+          }
         }
       }
 

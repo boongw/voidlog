@@ -19,7 +19,14 @@ export interface AttemptRow {
   durationMs: number;
   segments: { name: string; order: number; leftPct: number; widthPct: number }[];
   deaths: { timeMs: number; player: string | null }[];
-  mechanics: { timeMs: number; name: string; mechanicName: string; player: string | null }[];
+  mechanics: {
+    timeMs: number;
+    name: string;
+    mechanicName: string;
+    player: string | null;
+    /** Only populated for stealth-phase events (see stealth-phases.ts on the worker) — currently just "Invis.Cast". */
+    msSincePhaseEnd?: number;
+  }[];
   phases: {
     name: string;
     order: number;
@@ -119,6 +126,8 @@ interface MarkerCluster {
   count: number;
   /** Deduped, first-seen order — empty for mechanics with no attributable player (e.g. boss casts). */
   players: string[];
+  /** Taken from the cluster's first event, like `name`/`timeMs` above — see AttemptRow.mechanics. */
+  msSincePhaseEnd?: number;
 }
 
 // Collapses same-mechanic markers that land within MARKER_CLUSTER_GAP_MS of
@@ -130,7 +139,13 @@ interface MarkerCluster {
 // who got hit — generic on purpose, so any future per-player mechanic gets
 // this for free once it's routed through here.
 function clusterMarkers(
-  events: { timeMs: number; name: string; mechanicName: string; player?: string | null }[],
+  events: {
+    timeMs: number;
+    name: string;
+    mechanicName: string;
+    player?: string | null;
+    msSincePhaseEnd?: number;
+  }[],
 ): MarkerCluster[] {
   const byMechanic = new Map<string, typeof events>();
   for (const e of events) {
@@ -150,6 +165,7 @@ function clusterMarkers(
       name: group[0]!.name,
       count: group.length,
       players,
+      msSincePhaseEnd: group[0]!.msSincePhaseEnd,
     });
   }
 
@@ -172,7 +188,9 @@ function clusterMarkers(
 
 function markerTooltip(cluster: MarkerCluster): string {
   const base = cluster.count > 1 ? `${cluster.name} (${cluster.count}×)` : cluster.name;
-  return cluster.players.length > 0 ? `${base} — ${cluster.players.join(", ")}` : base;
+  const withPlayers = cluster.players.length > 0 ? `${base} — ${cluster.players.join(", ")}` : base;
+  if (cluster.msSincePhaseEnd === undefined) return withPlayers;
+  return `${withPlayers} — ${(cluster.msSincePhaseEnd / 1000).toFixed(1)}s seit Phasenende`;
 }
 
 // Normal Mode and Challenge Mode share the same bossId (see EncounterResult
@@ -191,7 +209,15 @@ function ModeBadge({ isCM }: Readonly<{ isCM: boolean }>) {
 }
 
 type AttackType =
-  "jaws" | "slam" | "beam" | "shockwave" | "scream" | "green" | "spreadBait" | "redBait";
+  | "jaws"
+  | "slam"
+  | "beam"
+  | "shockwave"
+  | "scream"
+  | "green"
+  | "spreadBait"
+  | "redBait"
+  | "invis";
 
 // The glyphs below (attackType/ATTACK_LABEL too) are inherently specific
 // to Harvest Temple CM's curated cast markers (see cast-markers.ts on the
@@ -209,6 +235,10 @@ const GREEN_SPAWN_COLOR = "#4CA64C";
 const SPREAD_BAIT_COLOR = "#E8B84C";
 const RED_BAIT_COLOR = "#E0453D";
 
+// Unused by the "invis" glyph itself (an <img>, not a colored SVG shape —
+// see AttackGlyph below) — kept only to satisfy ATTACK_COLOR's Record type.
+const INVIS_COLOR = "#9B6FE0";
+
 const ATTACK_COLOR: Record<AttackType, string> = {
   jaws: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
   slam: phaseColor(HARVEST_TEMPLE_BOSS_ID, 0, "Primordus"),
@@ -218,6 +248,7 @@ const ATTACK_COLOR: Record<AttackType, string> = {
   green: GREEN_SPAWN_COLOR,
   spreadBait: SPREAD_BAIT_COLOR,
   redBait: RED_BAIT_COLOR,
+  invis: INVIS_COLOR,
 };
 
 // One small glyph per boss attack, drawn in the dragon's own color — sits
@@ -306,6 +337,20 @@ function AttackGlyph({ type, flipped }: Readonly<{ type: AttackType; flipped?: b
       </svg>
     );
   }
+  if (type === "invis") {
+    // Wiki icon (GW2's own Mass Invisibility skill icon) instead of a
+    // hand-drawn glyph — the other markers approximate their attack visually,
+    // but a stealth cast doesn't have one, so the game's own icon reads
+    // clearer than an abstract shape would.
+    // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
+    return (
+      <img
+        src="/icons/mass-invisibility.png"
+        alt=""
+        className="h-3.5 w-3.5 rounded-sm opacity-90"
+      />
+    );
+  }
   // "spreadBait"/"redBait": a plain outlined circle — matches the game's
   // own bait-circle indicator, colored per bait type.
   return (
@@ -324,6 +369,7 @@ const ATTACK_LABEL: Record<AttackType, string> = {
   green: "Greens (aufgelöst)",
   spreadBait: "Spread Bait",
   redBait: "Red Bait",
+  invis: "Mass Invisibility",
 };
 
 // Testweise: fires much more often than the named boss casts (per-player,
@@ -344,6 +390,7 @@ function attackType(mechanicName: string): AttackType | null {
   if (mechanicName === "Green.Spawn") return "green";
   if (mechanicName === "Spread.B") return "spreadBait";
   if (mechanicName === "Red.B") return "redBait";
+  if (mechanicName === "Invis.Cast") return "invis";
   return null;
 }
 
@@ -417,13 +464,21 @@ function buildPhaseMechanicMaps(attempts: AttemptRow[]) {
 }
 
 // Mechanics whose HTCM design spans multiple dragon phases (per
-// harvest-temple.ts: Greens spawns on Jormag/Primordus/Zhaitan) but that
-// this specific batch's attempts happened to only reach/fail on one of
+// harvest-temple.ts: Greens spawns on Jormag/Primordus/Zhaitan, the
+// Mass-Invisibility stealth phase and its "Revealed" fail after
+// Jormag/Primordus/Mordremoth — see stealth-phases.ts on the worker) but
+// that this specific batch's attempts happened to only reach/fail on one of
 // them — without this, a batch with e.g. only Jormag data would show
-// "Greens verfehlt" filed under Jormag instead of "Mehrere Phasen", which
-// would look wrong the moment a Primordus/Zhaitan attempt is added later.
-// Forced in regardless of what phasesByMechanic below actually observed.
-const FORCE_MULTI_PHASE_MECHANIC_NAMES = new Set(["F.Green", "Green.Spawn"]);
+// "Greens verfehlt"/"Mass Invisibility"/"Revealed" filed under Jormag
+// instead of "Mehrere Phasen", which would look wrong the moment a
+// Primordus/Mordremoth/Zhaitan attempt is added later. Forced in regardless
+// of what phasesByMechanic below actually observed.
+const FORCE_MULTI_PHASE_MECHANIC_NAMES = new Set([
+  "F.Green",
+  "Green.Spawn",
+  "Invis.Cast",
+  "Revealed",
+]);
 
 // Mechanics that show up in more than one main phase (e.g. a fail that can
 // happen throughout the fight, not tied to one phase) go into their own
