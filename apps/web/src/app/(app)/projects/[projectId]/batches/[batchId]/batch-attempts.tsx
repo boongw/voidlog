@@ -5,6 +5,7 @@ import { Card, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { PhaseBadge, phaseColor, readableHeadingColor } from "@/components/phase-badge";
+import { SortableColumnHeader } from "@/components/sortable-column-header";
 import { isVisibleCastMarker } from "@/lib/mechanics";
 import { RemoveLogButton } from "./remove-log-button";
 
@@ -47,6 +48,56 @@ export interface BatchRosterRow {
   failedMechanics: number;
   shockwaveHits: number;
   debilitatedHits: number;
+}
+
+type RosterSortKey =
+  | "account"
+  | "role"
+  | "encounters"
+  | "kills"
+  | "avgDps"
+  | "avgDowns"
+  | "failedMechanics"
+  | "shockwaveHits"
+  | "debilitatedHits";
+
+// Same convention as the project-wide roster table (roster-table.tsx): text
+// columns default ascending, numeric performance stats default descending
+// (highest first) — matches this table's original server-side default sort
+// (most failed mechanics first).
+const ROSTER_DEFAULT_DIRECTION: Record<RosterSortKey, "asc" | "desc"> = {
+  account: "asc",
+  role: "asc",
+  encounters: "desc",
+  kills: "desc",
+  avgDps: "desc",
+  avgDowns: "desc",
+  failedMechanics: "desc",
+  shockwaveHits: "desc",
+  debilitatedHits: "desc",
+};
+
+function compareRosterRows(a: BatchRosterRow, b: BatchRosterRow, key: RosterSortKey): number {
+  switch (key) {
+    case "account":
+      return a.account.localeCompare(b.account);
+    case "role":
+      return a.role.localeCompare(b.role);
+    case "encounters":
+      return a.encounters - b.encounters;
+    case "kills":
+      return a.kills - b.kills;
+    case "avgDps":
+      return a.avgDps - b.avgDps;
+    case "avgDowns":
+      return Number.parseFloat(a.avgDowns) - Number.parseFloat(b.avgDowns);
+    case "failedMechanics":
+      return a.failedMechanics - b.failedMechanics;
+    case "shockwaveHits":
+      return a.shockwaveHits - b.shockwaveHits;
+    case "debilitatedHits":
+      return a.debilitatedHits - b.debilitatedHits;
+  }
 }
 
 function formatDuration(ms: number): string {
@@ -672,6 +723,35 @@ export function BatchAttempts({
   const [hiddenMechanics, setHiddenMechanics] = useState<Set<string>>(new Set());
   const maxDurationMs = Math.max(1, ...attempts.map((a) => a.durationMs));
 
+  const [rosterSortKey, setRosterSortKey] = useState<RosterSortKey>("failedMechanics");
+  const [rosterDirection, setRosterDirection] = useState<"asc" | "desc">("desc");
+
+  function handleRosterSort(key: RosterSortKey) {
+    if (key === rosterSortKey) {
+      setRosterDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setRosterSortKey(key);
+      setRosterDirection(ROSTER_DEFAULT_DIRECTION[key]);
+    }
+  }
+
+  const sortedRoster = useMemo(() => {
+    const rows = [...roster].sort((a, b) => compareRosterRows(a, b, rosterSortKey));
+    return rosterDirection === "asc" ? rows : rows.reverse();
+  }, [roster, rosterSortKey, rosterDirection]);
+
+  function rosterHeader(key: RosterSortKey, label: string) {
+    return (
+      <SortableColumnHeader
+        active={rosterSortKey === key}
+        direction={rosterDirection}
+        onClick={() => handleRosterSort(key)}
+      >
+        {label}
+      </SortableColumnHeader>
+    );
+  }
+
   function toggleMechanic(mechanicName: string) {
     setHiddenMechanics((prev) => {
       const next = new Set(prev);
@@ -1066,19 +1146,19 @@ export function BatchAttempts({
         <Table.Root variant="surface" className="border-line bg-surface border">
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeaderCell>Spieler</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Rolle</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Teilnahmen</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Kills</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Ø DPS</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Ø Downs</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Gefailte Mechaniken</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Geschwächt erhalten</Table.ColumnHeaderCell>
+              {rosterHeader("account", "Spieler")}
+              {rosterHeader("role", "Rolle")}
+              {rosterHeader("encounters", "Teilnahmen")}
+              {rosterHeader("kills", "Kills")}
+              {rosterHeader("avgDps", "Ø DPS")}
+              {rosterHeader("avgDowns", "Ø Downs")}
+              {rosterHeader("failedMechanics", "Gefailte Mechaniken")}
+              {rosterHeader("shockwaveHits", "Schockwellen getroffen")}
+              {rosterHeader("debilitatedHits", "Geschwächt erhalten")}
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {roster.map((entry) => (
+            {sortedRoster.map((entry) => (
               <Table.Row key={entry.account}>
                 <Table.Cell>
                   <div className="flex items-center gap-2.5">
