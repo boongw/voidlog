@@ -416,6 +416,15 @@ function buildPhaseMechanicMaps(attempts: AttemptRow[]) {
   return { groups, phasesByMechanic, attackTypeByMechanic, failLabelByMechanic };
 }
 
+// Mechanics whose HTCM design spans multiple dragon phases (per
+// harvest-temple.ts: Greens spawns on Jormag/Primordus/Zhaitan) but that
+// this specific batch's attempts happened to only reach/fail on one of
+// them — without this, a batch with e.g. only Jormag data would show
+// "Greens verfehlt" filed under Jormag instead of "Mehrere Phasen", which
+// would look wrong the moment a Primordus/Zhaitan attempt is added later.
+// Forced in regardless of what phasesByMechanic below actually observed.
+const FORCE_MULTI_PHASE_MECHANIC_NAMES = new Set(["F.Green", "Green.Spawn"]);
+
 // Mechanics that show up in more than one main phase (e.g. a fail that can
 // happen throughout the fight, not tied to one phase) go into their own
 // "Mehrere Phasen" group instead of being listed once per phase.
@@ -426,6 +435,9 @@ function buildPhaseFilterData(attempts: AttemptRow[]) {
   const multiPhaseNames = new Set(
     [...phasesByMechanic.entries()].filter(([, phases]) => phases.size > 1).map(([name]) => name),
   );
+  for (const name of FORCE_MULTI_PHASE_MECHANIC_NAMES) {
+    if (phasesByMechanic.has(name)) multiPhaseNames.add(name);
+  }
 
   const phaseFilterGroups: PhaseFilterGroup[] = [...groups.entries()]
     .sort((a, b) => a[1].order - b[1].order)
