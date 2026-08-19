@@ -16,6 +16,8 @@ export interface RosterRow {
   shockwaveHitsPerEncounter: string;
   debilitatedHits: number;
   debilitatedHitsPerEncounter: string;
+  revealCount: number;
+  revealCountPerEncounter: string;
   lastActive: Date;
 }
 
@@ -28,6 +30,7 @@ type SortKey =
   | "avgDowns"
   | "shockwaveHits"
   | "debilitatedHits"
+  | "revealCount"
   | "lastActive";
 
 // Text/date columns read more naturally starting ascending (A→Z, oldest
@@ -43,6 +46,7 @@ const DEFAULT_DIRECTION: Record<SortKey, "asc" | "desc"> = {
   avgDowns: "desc",
   shockwaveHits: "desc",
   debilitatedHits: "desc",
+  revealCount: "desc",
   lastActive: "desc",
 };
 
@@ -64,6 +68,8 @@ function compareRows(a: RosterRow, b: RosterRow, key: SortKey): number {
       return a.shockwaveHits - b.shockwaveHits;
     case "debilitatedHits":
       return a.debilitatedHits - b.debilitatedHits;
+    case "revealCount":
+      return a.revealCount - b.revealCount;
     case "lastActive":
       return a.lastActive.getTime() - b.lastActive.getTime();
   }
@@ -111,6 +117,7 @@ export function RosterTable({ roster }: Readonly<{ roster: RosterRow[] }>) {
           {header("avgDowns", "Ø Downs")}
           {header("shockwaveHits", "Schockwellen getroffen")}
           {header("debilitatedHits", "Geschwächt erhalten")}
+          {header("revealCount", "Zu früh aufgedeckt")}
           {header("lastActive", "Zuletzt aktiv")}
         </Table.Row>
       </Table.Header>
@@ -143,6 +150,12 @@ export function RosterTable({ roster }: Readonly<{ roster: RosterRow[] }>) {
                 (Ø {entry.debilitatedHitsPerEncounter})
               </span>
             </Table.Cell>
+            <Table.Cell className="text-warning font-semibold">
+              {entry.revealCount}{" "}
+              <span className="text-muted text-sm font-medium">
+                (Ø {entry.revealCountPerEncounter})
+              </span>
+            </Table.Cell>
             <Table.Cell className="text-muted text-sm">
               {entry.lastActive.toLocaleDateString("de-DE")}
             </Table.Cell>
@@ -150,7 +163,7 @@ export function RosterTable({ roster }: Readonly<{ roster: RosterRow[] }>) {
         ))}
         {sorted.length === 0 ? (
           <Table.Row>
-            <Table.Cell colSpan={9} className="text-muted">
+            <Table.Cell colSpan={10} className="text-muted">
               Noch keine ausgewerteten Logs.
             </Table.Cell>
           </Table.Row>

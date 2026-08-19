@@ -15,6 +15,7 @@ interface RosterEntry {
   lastActive: Date;
   shockwaveHits: number;
   debilitatedHits: number;
+  revealCount: number;
 }
 
 export default async function RosterPage(props: PageProps<"/projects/[projectId]/players">) {
@@ -50,6 +51,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       lastActive: p.encounterResult.createdAt,
       shockwaveHits: 0,
       debilitatedHits: 0,
+      revealCount: 0,
     };
     entry.characterNames.add(p.characterName);
     entry.encounters += 1;
@@ -67,6 +69,11 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
     entry.debilitatedHits += p.mechanicEvents.filter(
       (m) => m.mechanicName === "Debilitated",
     ).length;
+    // "Revealed" is only persisted for isolated early reveals during the
+    // Mass-Invisibility stealth window (group "attack now" calls are
+    // filtered out entirely — see stealth-phases.ts on the worker), so
+    // every occurrence here is already a genuine early-reveal mistake.
+    entry.revealCount += p.mechanicEvents.filter((m) => m.mechanicName === "Revealed").length;
     byAccount.set(p.account, entry);
   }
 
@@ -88,6 +95,8 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       shockwaveHitsPerEncounter: (entry.shockwaveHits / entry.encounters).toFixed(2),
       debilitatedHits: entry.debilitatedHits,
       debilitatedHitsPerEncounter: (entry.debilitatedHits / entry.encounters).toFixed(2),
+      revealCount: entry.revealCount,
+      revealCountPerEncounter: (entry.revealCount / entry.encounters).toFixed(2),
     };
   });
 

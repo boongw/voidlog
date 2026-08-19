@@ -233,6 +233,7 @@ export default async function BatchDetailPage(
       failedMechanics: number;
       shockwaveHits: number;
       debilitatedHits: number;
+      revealCount: number;
     }
   >();
   for (const { encounter } of encounters) {
@@ -247,6 +248,7 @@ export default async function BatchDetailPage(
         failedMechanics: 0,
         shockwaveHits: 0,
         debilitatedHits: 0,
+        revealCount: 0,
       };
       entry.characterNames.add(p.characterName);
       entry.encounters += 1;
@@ -276,6 +278,11 @@ export default async function BatchDetailPage(
         // "Debilitated" is HTCM's raw EI debuff name for the Geschwächt
         // stack (see harvest-temple.ts) — same hardcoded-stat treatment.
         if (event.mechanicName === "Debilitated") entry.debilitatedHits += 1;
+        // "Revealed" is only persisted for isolated early reveals during the
+        // Mass-Invisibility stealth window (group "attack now" calls are
+        // filtered out entirely — see stealth-phases.ts on the worker), so
+        // every occurrence here is already a genuine early-reveal mistake.
+        if (event.mechanicName === "Revealed") entry.revealCount += 1;
       }
     }
   }
@@ -291,6 +298,7 @@ export default async function BatchDetailPage(
       failedMechanics: entry.failedMechanics,
       shockwaveHits: entry.shockwaveHits,
       debilitatedHits: entry.debilitatedHits,
+      revealCount: entry.revealCount,
     }))
     .sort((a, b) => b.failedMechanics - a.failedMechanics);
 

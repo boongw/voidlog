@@ -55,6 +55,7 @@ export interface BatchRosterRow {
   failedMechanics: number;
   shockwaveHits: number;
   debilitatedHits: number;
+  revealCount: number;
 }
 
 type RosterSortKey =
@@ -66,7 +67,8 @@ type RosterSortKey =
   | "avgDowns"
   | "failedMechanics"
   | "shockwaveHits"
-  | "debilitatedHits";
+  | "debilitatedHits"
+  | "revealCount";
 
 // Same convention as the project-wide roster table (roster-table.tsx): text
 // columns default ascending, numeric performance stats default descending
@@ -82,6 +84,7 @@ const ROSTER_DEFAULT_DIRECTION: Record<RosterSortKey, "asc" | "desc"> = {
   failedMechanics: "desc",
   shockwaveHits: "desc",
   debilitatedHits: "desc",
+  revealCount: "desc",
 };
 
 function compareRosterRows(a: BatchRosterRow, b: BatchRosterRow, key: RosterSortKey): number {
@@ -104,6 +107,8 @@ function compareRosterRows(a: BatchRosterRow, b: BatchRosterRow, key: RosterSort
       return a.shockwaveHits - b.shockwaveHits;
     case "debilitatedHits":
       return a.debilitatedHits - b.debilitatedHits;
+    case "revealCount":
+      return a.revealCount - b.revealCount;
   }
 }
 
@@ -1222,6 +1227,7 @@ export function BatchAttempts({
               {rosterHeader("failedMechanics", "Gefailte Mechaniken")}
               {rosterHeader("shockwaveHits", "Schockwellen getroffen")}
               {rosterHeader("debilitatedHits", "Geschwächt erhalten")}
+              {rosterHeader("revealCount", "Zu früh aufgedeckt")}
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -1250,11 +1256,14 @@ export function BatchAttempts({
                 <Table.Cell className="text-warning font-semibold">
                   {entry.debilitatedHits}
                 </Table.Cell>
+                <Table.Cell className="text-warning font-semibold">
+                  {entry.revealCount}
+                </Table.Cell>
               </Table.Row>
             ))}
             {roster.length === 0 ? (
               <Table.Row>
-                <Table.Cell colSpan={9} className="text-muted">
+                <Table.Cell colSpan={10} className="text-muted">
                   Noch keine ausgewerteten Logs.
                 </Table.Cell>
               </Table.Row>
