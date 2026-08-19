@@ -220,6 +220,7 @@ export default async function BatchDetailPage(
       roleCounts: Map<string, number>;
       failedMechanics: number;
       shockwaveHits: number;
+      debilitatedHits: number;
     }
   >();
   for (const { encounter } of encounters) {
@@ -233,6 +234,7 @@ export default async function BatchDetailPage(
         roleCounts: new Map<string, number>(),
         failedMechanics: 0,
         shockwaveHits: 0,
+        debilitatedHits: 0,
       };
       entry.characterNames.add(p.characterName);
       entry.encounters += 1;
@@ -259,6 +261,9 @@ export default async function BatchDetailPage(
         // "ShckWv.H" is Mordremoth's raw EI code for a Schockwelle hit —
         // same hardcoded-stat treatment as the batch-wide stat card above.
         if (event.mechanicName === "ShckWv.H") entry.shockwaveHits += 1;
+        // "Debilitated" is HTCM's raw EI debuff name for the Geschwächt
+        // stack (see harvest-temple.ts) — same hardcoded-stat treatment.
+        if (event.mechanicName === "Debilitated") entry.debilitatedHits += 1;
       }
     }
   }
@@ -273,6 +278,7 @@ export default async function BatchDetailPage(
       avgDowns: (entry.totalDowns / entry.encounters).toFixed(1),
       failedMechanics: entry.failedMechanics,
       shockwaveHits: entry.shockwaveHits,
+      debilitatedHits: entry.debilitatedHits,
     }))
     .sort((a, b) => b.failedMechanics - a.failedMechanics);
 

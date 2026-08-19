@@ -14,6 +14,7 @@ interface RosterEntry {
   roleCounts: Map<string, number>;
   lastActive: Date;
   shockwaveHits: number;
+  debilitatedHits: number;
 }
 
 export default async function RosterPage(props: PageProps<"/projects/[projectId]/players">) {
@@ -48,6 +49,7 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       roleCounts: new Map<string, number>(),
       lastActive: p.encounterResult.createdAt,
       shockwaveHits: 0,
+      debilitatedHits: 0,
     };
     entry.characterNames.add(p.characterName);
     entry.encounters += 1;
@@ -60,6 +62,11 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
     // "ShckWv.H" is Mordremoth's raw EI code for a Schockwelle hit — same
     // hardcoded-stat treatment as the batch-roster and batch-detail stats.
     entry.shockwaveHits += p.mechanicEvents.filter((m) => m.mechanicName === "ShckWv.H").length;
+    // "Debilitated" is HTCM's raw EI debuff name for the Geschwächt stack
+    // (see harvest-temple.ts) — same hardcoded-stat treatment.
+    entry.debilitatedHits += p.mechanicEvents.filter(
+      (m) => m.mechanicName === "Debilitated",
+    ).length;
     byAccount.set(p.account, entry);
   }
 
@@ -79,6 +86,8 @@ export default async function RosterPage(props: PageProps<"/projects/[projectId]
       // more than one shockwave per encounter, so a "%" reads oddly once
       // it passes 100.
       shockwaveHitsPerEncounter: (entry.shockwaveHits / entry.encounters).toFixed(2),
+      debilitatedHits: entry.debilitatedHits,
+      debilitatedHitsPerEncounter: (entry.debilitatedHits / entry.encounters).toFixed(2),
     };
   });
 

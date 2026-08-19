@@ -46,6 +46,7 @@ export interface BatchRosterRow {
   avgDowns: string;
   failedMechanics: number;
   shockwaveHits: number;
+  debilitatedHits: number;
 }
 
 function formatDuration(ms: number): string {
@@ -1073,6 +1074,7 @@ export function BatchAttempts({
               <Table.ColumnHeaderCell>Ø Downs</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Gefailte Mechaniken</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Schockwellen getroffen</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Geschwächt erhalten</Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -1098,11 +1100,14 @@ export function BatchAttempts({
                 <Table.Cell className="text-warning font-semibold">
                   {entry.shockwaveHits}
                 </Table.Cell>
+                <Table.Cell className="text-warning font-semibold">
+                  {entry.debilitatedHits}
+                </Table.Cell>
               </Table.Row>
             ))}
             {roster.length === 0 ? (
               <Table.Row>
-                <Table.Cell colSpan={8} className="text-muted">
+                <Table.Cell colSpan={9} className="text-muted">
                   Noch keine ausgewerteten Logs.
                 </Table.Cell>
               </Table.Row>
