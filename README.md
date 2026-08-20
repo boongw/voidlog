@@ -53,7 +53,7 @@ scripts/
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js >= 22.13 (required by `pnpm@11.22.0`, see `packageManager` in `package.json`)
 - [pnpm](https://pnpm.io/) (enable via `corepack enable`)
 - Docker + Docker Compose (for Postgres, Redis, MinIO)
 
