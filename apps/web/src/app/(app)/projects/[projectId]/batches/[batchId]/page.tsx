@@ -31,6 +31,15 @@ function readMsSincePhaseEnd(context: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
 }
 
+// Reads MechanicEvent.context.msSinceInvisCast (see stealth-phases.ts on the
+// worker) — only populated on "Revealed" events, measuring against the
+// causing Mass-Invisibility cast itself rather than the dragon phase's end.
+function readMsSinceInvisCast(context: unknown): number | undefined {
+  if (!context || typeof context !== "object") return undefined;
+  const value = (context as Record<string, unknown>).msSinceInvisCast;
+  return typeof value === "number" ? value : undefined;
+}
+
 // storageKeyRaw looks like "raw/<batchId>/<uuid>-<sanitized filename>" — strip
 // the batch/uuid prefix so failed uploads show the original filename.
 function displayFileName(storageKeyRaw: string): string {
@@ -347,6 +356,7 @@ export default async function BatchDetailPage(
             mechanicName: m.mechanicName,
             player: m.playerResult?.characterName ?? null,
             msSincePhaseEnd: readMsSincePhaseEnd(m.context),
+            msSinceInvisCast: readMsSinceInvisCast(m.context),
           })),
       ),
       phases: mainPhases.map((p) => {

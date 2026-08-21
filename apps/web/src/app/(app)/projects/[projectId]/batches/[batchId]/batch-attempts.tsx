@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRightIcon, Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
-import { Card, Tabs, Table } from "@radix-ui/themes";
+import { Card, HoverCard, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { PhaseBadge, phaseColor, readableHeadingColor } from "@/components/phase-badge";
@@ -26,6 +26,8 @@ export interface AttemptRow {
     player: string | null;
     /** Only populated for stealth-phase events (see stealth-phases.ts on the worker) — currently just "Invis.Cast". */
     msSincePhaseEnd?: number;
+    /** Only populated on "Revealed" events — time since the causing Mass-Invisibility cast, not the phase end. */
+    msSinceInvisCast?: number;
   }[];
   phases: {
     name: string;
@@ -133,6 +135,8 @@ interface MarkerCluster {
   players: string[];
   /** Taken from the cluster's first event, like `name`/`timeMs` above — see AttemptRow.mechanics. */
   msSincePhaseEnd?: number;
+  /** Taken from the cluster's first event — see AttemptRow.mechanics. */
+  msSinceInvisCast?: number;
 }
 
 // Collapses same-mechanic markers that land within MARKER_CLUSTER_GAP_MS of
@@ -150,6 +154,7 @@ function clusterMarkers(
     mechanicName: string;
     player?: string | null;
     msSincePhaseEnd?: number;
+    msSinceInvisCast?: number;
   }[],
 ): MarkerCluster[] {
   const byMechanic = new Map<string, typeof events>();
@@ -171,6 +176,7 @@ function clusterMarkers(
       count: group.length,
       players,
       msSincePhaseEnd: group[0]!.msSincePhaseEnd,
+      msSinceInvisCast: group[0]!.msSinceInvisCast,
     });
   }
 
@@ -191,11 +197,51 @@ function clusterMarkers(
   return clusters;
 }
 
-function markerTooltip(cluster: MarkerCluster): string {
-  const base = cluster.count > 1 ? `${cluster.name} (${cluster.count}×)` : cluster.name;
-  const withPlayers = cluster.players.length > 0 ? `${base} — ${cluster.players.join(", ")}` : base;
-  if (cluster.msSincePhaseEnd === undefined) return withPlayers;
-  return `${withPlayers} — ${(cluster.msSincePhaseEnd / 1000).toFixed(1)}s seit Phasenende`;
+// Rich replacement for a native `title` tooltip on a timeline marker: a small
+// Card showing which mechanic fired and, in its own row, which players it
+// hit — the plain-text `title` couldn't lay those out as separate lines.
+function MechanicHoverCard({
+  cluster,
+  icon,
+  children,
+}: Readonly<{ cluster: MarkerCluster; icon: ReactNode; children: ReactNode }>) {
+  return (
+    <HoverCard.Root openDelay={150} closeDelay={80}>
+      <HoverCard.Trigger>{children}</HoverCard.Trigger>
+      <HoverCard.Content size="1" sideOffset={6} className="!border-none !bg-transparent !p-0">
+        <Card size="1" className="border-line bg-surface-2 min-w-[170px] border shadow-lg">
+          <div className="flex items-center gap-1.5">
+            {icon}
+            <span className="text-foreground-strong text-xs font-semibold">{cluster.name}</span>
+          </div>
+          {cluster.players.length > 0 ? (
+            <div className="border-line-soft mt-1.5 border-t pt-1.5">
+              <div className="text-muted text-[10px] font-semibold uppercase tracking-wide">
+                Spieler ({cluster.players.length})
+              </div>
+              <div className="text-foreground mt-0.5 text-[11px]">{cluster.players.join(", ")}</div>
+            </div>
+          ) : null}
+          {cluster.msSincePhaseEnd !== undefined ? (
+            <div className="mt-1.5 flex items-baseline gap-1">
+              <span className="text-foreground text-[11px] font-semibold">
+                {(cluster.msSincePhaseEnd / 1000).toFixed(1)}s
+              </span>
+              <span className="text-muted-strong text-[10px]">seit Phasenende</span>
+            </div>
+          ) : null}
+          {cluster.msSinceInvisCast !== undefined ? (
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-foreground text-[11px] font-semibold">
+                {(cluster.msSinceInvisCast / 1000).toFixed(1)}s
+              </span>
+              <span className="text-muted-strong text-[10px]">seit Mass Invis Cast</span>
+            </div>
+          ) : null}
+        </Card>
+      </HoverCard.Content>
+    </HoverCard.Root>
+  );
 }
 
 // Normal Mode and Challenge Mode share the same bossId (see EncounterResult
@@ -1086,14 +1132,18 @@ export function BatchAttempts({
                       {highFreqClusters.map((c) => {
                         const type = attackType(c.mechanicName)!;
                         return (
-                          <span
+                          <MechanicHoverCard
                             key={`${c.mechanicName}-${c.timeMs}`}
-                            title={markerTooltip(c)}
-                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                            style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                            cluster={c}
+                            icon={<AttackGlyph type={type} />}
                           >
-                            <AttackGlyph type={type} />
-                          </span>
+                            <span
+                              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                              style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                            >
+                              <AttackGlyph type={type} />
+                            </span>
+                          </MechanicHoverCard>
                         );
                       })}
                     </span>
@@ -1108,14 +1158,18 @@ export function BatchAttempts({
                             ? beamClusters.indexOf(c) % 2 === 1
                             : undefined;
                         return (
-                          <span
+                          <MechanicHoverCard
                             key={`${c.mechanicName}-${c.timeMs}`}
-                            title={markerTooltip(c)}
-                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                            style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                            cluster={c}
+                            icon={<AttackGlyph type={type} flipped={flipped} />}
                           >
-                            <AttackGlyph type={type} flipped={flipped} />
-                          </span>
+                            <span
+                              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                              style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                            >
+                              <AttackGlyph type={type} flipped={flipped} />
+                            </span>
+                          </MechanicHoverCard>
                         );
                       })}
                     </span>
@@ -1147,14 +1201,18 @@ export function BatchAttempts({
                         </span>
                       ))}
                       {failClusters.map((c) => (
-                        <span
+                        <MechanicHoverCard
                           key={`${c.mechanicName}-${c.timeMs}`}
-                          title={markerTooltip(c)}
-                          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                          style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                          cluster={c}
+                          icon={failMechanicIcon(c.mechanicName, { distinguishGreen: false })}
                         >
-                          {failMechanicIcon(c.mechanicName, { distinguishGreen: false })}
-                        </span>
+                          <span
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                            style={{ left: `${(c.timeMs / a.durationMs) * 100}%` }}
+                          >
+                            {failMechanicIcon(c.mechanicName, { distinguishGreen: false })}
+                          </span>
+                        </MechanicHoverCard>
                       ))}
                     </span>
                   </span>

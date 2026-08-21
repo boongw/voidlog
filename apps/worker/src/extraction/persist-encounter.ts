@@ -451,6 +451,10 @@ export async function persistExtractedEncounter(
             // "how long after the phase ended" story, so every reveal in it
             // should be measured against the same reference point.
             const revealPhaseEnd = phaseEndContext(precedingPhase, revealTime);
+            // How long stealth actually held before this player broke it —
+            // distinct from `phaseEnd.msSincePhaseEnd` above (which measures
+            // against the dragon phase's end, not the cast itself).
+            const msSinceInvisCast = Math.round(revealTime - invisCast.timeMs);
 
             const revealPhaseIndex = resolvePhaseIndex(revealTime);
             await tx.mechanicEvent.create({
@@ -461,13 +465,11 @@ export async function persistExtractedEncounter(
                 category: MechanicCategory.REVEAL,
                 displayName: config.revealDisplayName,
                 timeMs: Math.round(revealTime),
-                context:
-                  causingSkill || revealPhaseEnd
-                    ? {
-                        ...(causingSkill ? { causingSkill } : {}),
-                        ...(revealPhaseEnd ? { phaseEnd: revealPhaseEnd } : {}),
-                      }
-                    : undefined,
+                context: {
+                  ...(causingSkill ? { causingSkill } : {}),
+                  ...(revealPhaseEnd ? { phaseEnd: revealPhaseEnd } : {}),
+                  msSinceInvisCast,
+                },
               },
             });
           }
