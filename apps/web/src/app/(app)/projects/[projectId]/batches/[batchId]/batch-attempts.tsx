@@ -11,6 +11,7 @@ import { RemoveLogButton } from "./remove-log-button";
 
 export interface AttemptRow {
   logFileId: string;
+  fileName: string;
   bossId: string;
   isCM: boolean;
   n: number;
@@ -124,6 +125,21 @@ function phaseStatusLabel(phase: { reached: boolean; success: boolean }): string
   return phase.success ? "Abgeschlossen" : "Nicht abgeschlossen";
 }
 
+// One label/value pair in an attempt's stat overview row (Ergebnis, Modus,
+// Dauer, ...) — plain text, unlike the icon-only mechanic cards below it.
+function StatItem({
+  label,
+  value,
+  valueClassName,
+}: Readonly<{ label: string; value: ReactNode; valueClassName?: string }>) {
+  return (
+    <div>
+      <div className="text-muted text-[10px] uppercase tracking-wide">{label}</div>
+      <div className={`text-xs font-semibold ${valueClassName ?? "text-foreground"}`}>{value}</div>
+    </div>
+  );
+}
+
 const MARKER_CLUSTER_GAP_MS = 500;
 
 interface MarkerCluster {
@@ -195,6 +211,29 @@ function clusterMarkers(
     if (current.length > 0) pushCluster(clusters, mechanicName, current);
   }
   return clusters;
+}
+
+// Unlike clusterMarkers (time-windowed, for the timeline lanes), this
+// collapses every occurrence of a mechanic in a phase into one icon
+// regardless of when it happened — the phase-summary cards below show one
+// glyph per distinct mechanic, not one per timeline moment.
+function groupFailMechanics(
+  events: { mechanicName: string; name: string; player: string | null }[],
+): MarkerCluster[] {
+  const byMechanic = new Map<string, { name: string; players: string[]; count: number }>();
+  for (const e of events) {
+    const entry = byMechanic.get(e.mechanicName) ?? { name: e.name, players: [], count: 0 };
+    entry.count += 1;
+    if (e.player && !entry.players.includes(e.player)) entry.players.push(e.player);
+    byMechanic.set(e.mechanicName, entry);
+  }
+  return [...byMechanic.entries()].map(([mechanicName, v]) => ({
+    timeMs: 0,
+    mechanicName,
+    name: v.name,
+    count: v.count,
+    players: v.players,
+  }));
 }
 
 // Rich replacement for a native `title` tooltip on a timeline marker: a small
@@ -1280,16 +1319,46 @@ export function BatchAttempts({
                 </button>
                 {isOpen ? (
                   <div className="border-line-soft border-t px-4 py-3.5 pl-[62px]">
+                    {/* Small stat overview first — the attempt-level numbers
+                        that used to only live in the collapsed row above,
+                        now spelled out here since the phase cards below no
+                        longer carry any text of their own. */}
+                    <div className="border-line-soft mb-3.5 flex flex-wrap gap-x-6 gap-y-2 border-b pb-3.5">
+                      <StatItem label="Log" value={a.fileName} />
+                      <StatItem
+                        label="Ergebnis"
+                        value={a.success ? "Kill" : "Wipe"}
+                        valueClassName={a.success ? "text-success" : "text-danger"}
+                      />
+                      <StatItem label="Modus" value={a.isCM ? "CM" : "NM"} />
+                      <StatItem
+                        label="Weiteste Phase"
+                        value={
+                          a.furthestPhase ? (
+                            <PhaseBadge
+                              bossId={a.bossId}
+                              name={a.furthestPhase.name}
+                              order={a.furthestPhase.order}
+                            />
+                          ) : (
+                            "—"
+                          )
+                        }
+                      />
+                      <StatItem label="Dauer" value={formatDuration(a.durationMs)} />
+                      <StatItem label="Tode" value={String(a.deaths.length)} />
+                    </div>
                     <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
                       {a.phases.map((phase) => {
                         // Boss-attack cast markers ride along in phase.mechanics
                         // (needed to build the filter accordion above) but stay
-                        // out of this plain-text fail summary.
+                        // out of this icon-only fail summary.
                         const failMechanics = phase.mechanics.filter(
                           (m) =>
                             !isVisibleCastMarker(a.bossId, m.mechanicName) &&
                             (selectedPlayer === null || m.player === selectedPlayer),
                         );
+                        const failGroups = groupFailMechanics(failMechanics);
                         return (
                           <div
                             key={phase.order}
@@ -1304,11 +1373,24 @@ export function BatchAttempts({
                             <div className="text-foreground text-xs font-semibold">
                               {phaseStatusLabel(phase)}
                             </div>
-                            {failMechanics.length > 0 ? (
-                              <div className="text-muted-strong mt-1 text-[10.5px]">
-                                {failMechanics
-                                  .map((m) => m.name + (m.player ? ` (${m.player})` : ""))
-                                  .join(", ")}
+                            {failGroups.length > 0 ? (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {failGroups.map((g) => (
+                                  <MechanicHoverCard
+                                    key={g.mechanicName}
+                                    cluster={g}
+                                    icon={failMechanicIcon(g.mechanicName)}
+                                  >
+                                    <span className="bg-line-soft/40 flex items-center gap-1 rounded-sm px-1.5 py-1">
+                                      {failMechanicIcon(g.mechanicName)}
+                                      {g.count > 1 ? (
+                                        <span className="text-foreground-strong text-[11px] font-bold">
+                                          {g.count}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </MechanicHoverCard>
+                                ))}
                               </div>
                             ) : null}
                           </div>

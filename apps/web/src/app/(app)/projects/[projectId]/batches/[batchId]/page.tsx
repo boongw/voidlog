@@ -325,6 +325,7 @@ export default async function BatchDetailPage(
     const furthest = reachedMainPhases.at(-1) ?? null;
     return {
       logFileId: logFile.id,
+      fileName: displayFileName(logFile.storageKeyRaw),
       bossId: encounter.bossId,
       isCM: encounter.isCM,
       n: i + 1,
