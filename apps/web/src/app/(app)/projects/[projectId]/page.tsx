@@ -137,7 +137,7 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
         <div className="flex items-center gap-3">
           <Link
             href={`/projects/${projectId}/batches/new`}
-            className="bg-primary text-primary-foreground rounded-sm px-3.5 py-2 text-sm font-semibold"
+            className="bg-primary text-primary-foreground inline-flex h-8 items-center justify-center rounded-sm px-3.5 text-sm font-semibold"
           >
             + Batch hochladen
           </Link>
