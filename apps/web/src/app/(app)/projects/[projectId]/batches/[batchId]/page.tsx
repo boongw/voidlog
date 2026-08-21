@@ -31,9 +31,10 @@ function readMsSincePhaseEnd(context: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
 }
 
-// Reads MechanicEvent.context.msSinceInvisCast (see stealth-phases.ts on the
-// worker) — only populated on "Revealed" events, measuring against the
-// causing Mass-Invisibility cast itself rather than the dragon phase's end.
+// Reads MechanicEvent.context.msSinceInvisCast (see persist-encounter.ts on
+// the worker) — only populated on "Revealed" events, measuring from the
+// causing Mass-Invisibility cast's channel *end* (not its start, and not the
+// dragon phase's end like `msSincePhaseEnd`).
 function readMsSinceInvisCast(context: unknown): number | undefined {
   if (!context || typeof context !== "object") return undefined;
   const value = (context as Record<string, unknown>).msSinceInvisCast;

@@ -26,7 +26,7 @@ export interface AttemptRow {
     player: string | null;
     /** Only populated for stealth-phase events (see stealth-phases.ts on the worker) — currently just "Invis.Cast". */
     msSincePhaseEnd?: number;
-    /** Only populated on "Revealed" events — time since the causing Mass-Invisibility cast, not the phase end. */
+    /** Only populated on "Revealed" events — time since the causing Mass-Invisibility cast's channel ended, not the phase end. */
     msSinceInvisCast?: number;
   }[];
   phases: {
@@ -235,7 +235,7 @@ function MechanicHoverCard({
               <span className="text-foreground text-[11px] font-semibold">
                 {(cluster.msSinceInvisCast / 1000).toFixed(1)}s
               </span>
-              <span className="text-muted-strong text-[10px]">seit Mass Invis Cast</span>
+              <span className="text-muted-strong text-[10px]">seit Ende Mass Invis Cast</span>
             </div>
           ) : null}
         </Card>

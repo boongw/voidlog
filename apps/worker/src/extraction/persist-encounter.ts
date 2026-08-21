@@ -453,8 +453,15 @@ export async function persistExtractedEncounter(
             const revealPhaseEnd = phaseEndContext(precedingPhase, revealTime);
             // How long stealth actually held before this player broke it —
             // distinct from `phaseEnd.msSincePhaseEnd` above (which measures
-            // against the dragon phase's end, not the cast itself).
-            const msSinceInvisCast = Math.round(revealTime - invisCast.timeMs);
+            // against the dragon phase's end, not the cast itself). Measured
+            // from the cast's *end* (channel finish), matching
+            // `stealthExpiresAt` above — from cast *start* this could read
+            // above the 6s `stealthDurationMs` cap by the channel's own
+            // length (~1-1.5s observed), which reads as "outlasting the buff"
+            // when the reveal is actually well within it.
+            const msSinceInvisCast = Math.round(
+              revealTime - (invisCast.timeMs + invisCast.durationMs),
+            );
 
             const revealPhaseIndex = resolvePhaseIndex(revealTime);
             await tx.mechanicEvent.create({
