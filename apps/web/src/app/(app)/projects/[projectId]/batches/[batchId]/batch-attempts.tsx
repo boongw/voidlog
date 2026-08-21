@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRightIcon, Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
-import { Card, HoverCard, Tabs, Table } from "@radix-ui/themes";
+import { Card, HoverCard, Select, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { PhaseBadge, phaseColor, readableHeadingColor } from "@/components/phase-badge";
@@ -649,6 +649,10 @@ function MechanicCell({ children, empty }: Readonly<{ children: ReactNode; empty
   );
 }
 
+// Sentinel for Select.Item's value (Radix disallows an empty-string value) —
+// stands in for "no player selected", mapped back to `null` at the callback.
+const ALL_PLAYERS_VALUE = "__all__";
+
 function MechanicFilterAccordion({
   bossId,
   phaseGroups,
@@ -659,6 +663,9 @@ function MechanicFilterAccordion({
   onToggle,
   onSelectAll,
   onDeselectAll,
+  playerNames,
+  selectedPlayer,
+  onSelectPlayer,
 }: Readonly<{
   bossId: string;
   phaseGroups: PhaseFilterGroup[];
@@ -669,6 +676,9 @@ function MechanicFilterAccordion({
   onToggle: (mechanicName: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  playerNames: string[];
+  selectedPlayer: string | null;
+  onSelectPlayer: (player: string | null) => void;
 }>) {
   return (
     <details className="border-line-soft group mb-3.5 border-b pb-3.5">
@@ -677,6 +687,29 @@ function MechanicFilterAccordion({
         Mechanik-Filter
       </summary>
       <div className="mt-3 hidden flex-col gap-3 group-open:flex">
+        {/* Restricts the "Mechaniken"/fail markers below to one player's own
+            fails (boss-attack markers stay unfiltered — those aren't
+            attributable mistakes) — separate axis from the mechanic-type
+            toggles below, the two combine rather than replace each other. */}
+        <div className="flex items-center gap-2.5">
+          <span className="text-muted-strong text-xs font-semibold">Spieler:</span>
+          <Select.Root
+            value={selectedPlayer ?? ALL_PLAYERS_VALUE}
+            onValueChange={(value) =>
+              onSelectPlayer(value === ALL_PLAYERS_VALUE ? null : value)
+            }
+          >
+            <Select.Trigger variant="surface" className="min-w-[160px]" />
+            <Select.Content>
+              <Select.Item value={ALL_PLAYERS_VALUE}>Alle Spieler</Select.Item>
+              {playerNames.map((name) => (
+                <Select.Item key={name} value={name}>
+                  {name}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        </div>
         <Table.Root variant="surface" className="border-line bg-surface-2 border">
           <Table.Header>
             <Table.Row>
@@ -839,7 +872,23 @@ export function BatchAttempts({
 }>) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [hiddenMechanics, setHiddenMechanics] = useState<Set<string>>(new Set());
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const maxDurationMs = Math.max(1, ...attempts.map((a) => a.durationMs));
+
+  // Every character name in the batch's roster, regardless of whether they
+  // ever failed a mechanic — lets the filter pick a player who's had zero
+  // fails and correctly see an empty timeline, not just the ones who show up
+  // in a marker already.
+  const playerNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const entry of roster) {
+      for (const name of entry.characterNames.split(",")) {
+        const trimmed = name.trim();
+        if (trimmed) names.add(trimmed);
+      }
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [roster]);
 
   const [rosterSortKey, setRosterSortKey] = useState<RosterSortKey>("failedMechanics");
   const [rosterDirection, setRosterDirection] = useState<"asc" | "desc">("desc");
@@ -1074,6 +1123,9 @@ export function BatchAttempts({
           onToggle={toggleMechanic}
           onSelectAll={selectAllMechanics}
           onDeselectAll={deselectAllMechanics}
+          playerNames={playerNames}
+          selectedPlayer={selectedPlayer}
+          onSelectPlayer={setSelectedPlayer}
         />
         <div className="border-line bg-surface divide-line-soft flex flex-col divide-y rounded-sm border">
           {attempts.map((a) => {
@@ -1094,8 +1146,14 @@ export function BatchAttempts({
               }),
             );
             const beamClusters = attackClusters.filter((c) => c.mechanicName === "Beam.Cast");
+            // Boss-attack lanes above stay unfiltered by selectedPlayer — a
+            // cast isn't an attributable mistake, only a fail is.
             const failClusters = clusterMarkers(
-              visibleMechanics.filter((m) => !isVisibleCastMarker(a.bossId, m.mechanicName)),
+              visibleMechanics.filter(
+                (m) =>
+                  !isVisibleCastMarker(a.bossId, m.mechanicName) &&
+                  (selectedPlayer === null || m.player === selectedPlayer),
+              ),
             );
             return (
               <div key={a.logFileId}>
@@ -1228,7 +1286,9 @@ export function BatchAttempts({
                         // (needed to build the filter accordion above) but stay
                         // out of this plain-text fail summary.
                         const failMechanics = phase.mechanics.filter(
-                          (m) => !isVisibleCastMarker(a.bossId, m.mechanicName),
+                          (m) =>
+                            !isVisibleCastMarker(a.bossId, m.mechanicName) &&
+                            (selectedPlayer === null || m.player === selectedPlayer),
                         );
                         return (
                           <div
