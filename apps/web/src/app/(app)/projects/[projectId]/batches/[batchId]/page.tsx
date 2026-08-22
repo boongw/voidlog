@@ -387,6 +387,7 @@ export default async function BatchDetailPage(
           order: p.order,
           reached: p.reached,
           success: p.success,
+          durationMs: p.endMs - p.startMs,
           // Keeps cast markers (boss attacks) in here too, unlike the death/
           // fail-only `mechanics` field above — the client needs them to
           // build the per-phase attack filter groups. isVisibleCastMarker is

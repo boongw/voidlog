@@ -1,6 +1,11 @@
 "use client";
 
-import { ChevronRightIcon, Cross2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import {
+  CheckCircledIcon,
+  ChevronRightIcon,
+  Cross2Icon,
+  ExclamationTriangleIcon,
+} from "@radix-ui/react-icons";
 import { Card, HoverCard, Select, Tabs, Table } from "@radix-ui/themes";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
@@ -35,6 +40,7 @@ export interface AttemptRow {
     order: number;
     reached: boolean;
     success: boolean;
+    durationMs: number;
     mechanics: { mechanicName: string; name: string; player: string | null }[];
   }[];
 }
@@ -118,11 +124,6 @@ function compareRosterRows(a: BatchRosterRow, b: BatchRosterRow, key: RosterSort
 function formatDuration(ms: number): string {
   const totalSeconds = Math.round(ms / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
-}
-
-function phaseStatusLabel(phase: { reached: boolean; success: boolean }): string {
-  if (!phase.reached) return "Nicht erreicht";
-  return phase.success ? "Abgeschlossen" : "Nicht abgeschlossen";
 }
 
 // One label/value pair in an attempt's stat overview row (Ergebnis, Modus,
@@ -651,14 +652,27 @@ function MechanicToggle({
 // visitor needs. Grouping by phase (instead of one flat list) mirrors the
 // aggregate phase cards above it, so the same phase names/colors orient the
 // user here too.
-function failMechanicIcon(mechanicName: string, options?: { distinguishGreen?: boolean }) {
+function failMechanicIcon(
+  mechanicName: string,
+  options?: { distinguishGreen?: boolean; size?: "sm" | "md" },
+) {
+  // "sm" matches the compact timeline lanes/filter chips (unchanged); "md"
+  // is for spots like the phase-summary cards where a 14px glyph at this
+  // component's tiny label sizes read as blurry rather than just small.
+  const size = options?.size ?? "sm";
   if (mechanicName === "Downed") {
     // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
-    return <img src="/icons/downed.png" alt="" className="h-4 w-2.5" />;
+    return <img src="/icons/downed.png" alt="" className={size === "md" ? "h-5 w-3" : "h-4 w-2.5"} />;
   }
   if (mechanicName === "Debilitated") {
     // eslint-disable-next-line @next/next/no-img-element -- fixed-size static icon, next/image is unnecessary overhead here
-    return <img src="/icons/debilitated.png" alt="" className="h-3.5 w-3.5" />;
+    return (
+      <img
+        src="/icons/debilitated.png"
+        alt=""
+        className={size === "md" ? "h-4 w-4" : "h-3.5 w-3.5"}
+      />
+    );
   }
   if (mechanicName === "F.Green" && options?.distinguishGreen !== false) {
     // Reuse the same green-circle glyph as the boss-attack lane's
@@ -669,7 +683,9 @@ function failMechanicIcon(mechanicName: string, options?: { distinguishGreen?: b
     // glyph — there the two lanes need to stay visually distinct.
     return <AttackGlyph type="green" />;
   }
-  return <ExclamationTriangleIcon className="text-warning h-3.5 w-3.5" />;
+  return (
+    <ExclamationTriangleIcon className={`text-warning ${size === "md" ? "h-4 w-4" : "h-3.5 w-3.5"}`} />
+  );
 }
 
 // One filter-table cell's worth of toggle chips — used for both the
@@ -1318,7 +1334,7 @@ export function BatchAttempts({
                   </span>
                 </button>
                 {isOpen ? (
-                  <div className="border-line-soft border-t px-4 py-3.5 pl-[62px]">
+                  <div className="border-line-soft bg-background border-t px-4 py-3.5 pl-[62px]">
                     {/* Small stat overview first — the attempt-level numbers
                         that used to only live in the collapsed row above,
                         now spelled out here since the phase cards below no
@@ -1346,9 +1362,28 @@ export function BatchAttempts({
                         }
                       />
                       <StatItem label="Dauer" value={formatDuration(a.durationMs)} />
-                      <StatItem label="Tode" value={String(a.deaths.length)} />
+                      <StatItem
+                        label="Reveals"
+                        value={String(
+                          a.mechanics.filter(
+                            (m) =>
+                              m.mechanicName === "Revealed" &&
+                              (selectedPlayer === null || m.player === selectedPlayer),
+                          ).length,
+                        )}
+                      />
+                      <StatItem
+                        label="Downstates"
+                        value={String(
+                          a.mechanics.filter(
+                            (m) =>
+                              m.mechanicName === "Downed" &&
+                              (selectedPlayer === null || m.player === selectedPlayer),
+                          ).length,
+                        )}
+                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
                       {a.phases.map((phase) => {
                         // Boss-attack cast markers ride along in phase.mechanics
                         // (needed to build the filter accordion above) but stay
@@ -1367,27 +1402,32 @@ export function BatchAttempts({
                               borderLeftColor: phaseColor(a.bossId, phase.order, phase.name),
                             }}
                           >
-                            <div className="text-muted mb-1 text-[10px] uppercase">
-                              {phase.name}
-                            </div>
-                            <div className="text-foreground text-xs font-semibold">
-                              {phaseStatusLabel(phase)}
+                            <div className="mb-1.5 flex items-center justify-between gap-1.5">
+                              <span className="text-muted flex items-center gap-1.5 text-xs uppercase">
+                                {phase.name}
+                                {phase.reached && phase.success ? (
+                                  <CheckCircledIcon className="text-success h-4 w-4" />
+                                ) : null}
+                              </span>
+                              {phase.reached ? (
+                                <span className="text-muted-strong text-xs">
+                                  {formatDuration(phase.durationMs)}
+                                </span>
+                              ) : null}
                             </div>
                             {failGroups.length > 0 ? (
-                              <div className="mt-1.5 flex flex-wrap gap-1">
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {failGroups.map((g) => (
                                   <MechanicHoverCard
                                     key={g.mechanicName}
                                     cluster={g}
-                                    icon={failMechanicIcon(g.mechanicName)}
+                                    icon={failMechanicIcon(g.mechanicName, { size: "md" })}
                                   >
-                                    <span className="bg-line-soft/40 flex items-center gap-1 rounded-sm px-1.5 py-1">
-                                      {failMechanicIcon(g.mechanicName)}
-                                      {g.count > 1 ? (
-                                        <span className="text-foreground-strong text-[11px] font-bold">
-                                          {g.count}
-                                        </span>
-                                      ) : null}
+                                    <span className="bg-line-soft/40 flex items-center gap-1 rounded-sm px-2 py-1.5">
+                                      {failMechanicIcon(g.mechanicName, { size: "md" })}
+                                      <span className="text-foreground-strong text-xs font-bold">
+                                        {g.count}
+                                      </span>
                                     </span>
                                   </MechanicHoverCard>
                                 ))}
